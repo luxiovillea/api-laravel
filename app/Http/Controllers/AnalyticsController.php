@@ -29,18 +29,26 @@ class AnalyticsController extends Controller
     /**
      * Menginisialisasi Google Client.
      */
-    private function getGoogleClient(): Client
-    {
-        $serviceAccountPath = storage_path('app/service-account-credentials.json');
-        if (!file_exists($serviceAccountPath)) {
-            throw new Exception("File service-account-credentials.json tidak ditemukan di storage/app/.");
-        }
+private function getGoogleClient(): Client
+{
+    // 1. Ambil seluruh isi JSON dari environment variable yang kita buat di Railway.
+    $credentialsJson = env('GOOGLE_CREDENTIALS_JSON');
 
-        $client = new Client();
-        $client->setAuthConfig($serviceAccountPath);
-        $client->addScope('https://www.googleapis.com/auth/analytics.readonly');
-        return $client;
+    // 2. Cek apakah variabelnya ada. Jika tidak, berikan error yang jelas.
+    if (empty($credentialsJson)) {
+        throw new Exception("Environment variable GOOGLE_CREDENTIALS_JSON tidak di-set atau kosong.");
     }
+
+    // 3. Buat object Google Client.
+    $client = new Client();
+    
+    // 4. Konfigurasi client menggunakan ISI DARI JSON, bukan path ke file.
+    // json_decode mengubah string JSON menjadi array yang dimengerti oleh setAuthConfig.
+    $client->setAuthConfig(json_decode($credentialsJson, true));
+    
+    $client->addScope('https://www.googleapis.com/auth/analytics.readonly');
+    return $client;
+}
 
     /**
      * Mengambil data REALTIME dengan laporan tambahan.
