@@ -10,14 +10,12 @@ use App\Http\Controllers\AnalyticsController;
 |--------------------------------------------------------------------------
 */
 
-// Hapus atau komentari rute lama
-// Route::get('/analytics/historical', [AnalyticsController::class, 'fetchHistoricalData']);
-// Route::get('/analytics/realtime', [AnalyticsController::class, 'fetchRealtimeData']);
+// HANYA ADA SATU RUTE INI:
+// URL /api/analytics-data akan memanggil fungsi fetchHistoricalData.
+Route::get('/analytics-data', [AnalyticsController::class, 'fetchHistoricalData']);
 
-// RUTE BARU: Menambahkan {propertyId} sebagai parameter wajib
-Route::get('/analytics/historical/{propertyId}', [AnalyticsController::class, 'fetchHistoricalData']);
-Route::get('/analytics/realtime/{propertyId}', [AnalyticsController::class, 'fetchRealtimeData']);
 
+// Rute default Laravel (biarkan saja)
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
