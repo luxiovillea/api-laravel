@@ -490,7 +490,7 @@
             fetchHistoricalData(currentPeriod);
 
             // Set interval for realtime data
-            setInterval(fetchRealtimeData, 30000); // Refresh every 30 seconds
+            setInterval(fetchRealtimeData, 30000); 
         });
     </script>
 </body>

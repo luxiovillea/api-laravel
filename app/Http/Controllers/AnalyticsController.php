@@ -13,150 +13,170 @@ use Google\Service\AnalyticsData\RunReportRequest;
 use Google\Service\AnalyticsData\OrderBy;
 use Google\Service\AnalyticsData\MetricOrderBy;
 use Google\Service\AnalyticsData\RunRealtimeReportRequest;
+use Google\Service\AnalyticsData\FilterExpression;
+use Google\Service\AnalyticsData\FilterExpressionList;
+use Google\Service\AnalyticsData\Filter;
+use Google\Service\AnalyticsData\Filter\StringFilter;
 use Exception;
 use Carbon\Carbon;
 
-/**
- * Controller komprehensif untuk Google Analytics 4 Data API.
- * 
- * Versi ini menambahkan:
- * - Realtime: Laporan audiens & feed aktivitas.
- * - Historis: Laporan tren harian (untuk grafik), konversi per event, dan halaman landing.
- * - Fitur: Rentang waktu historis yang dinamis via query parameter.
- */
 class AnalyticsController extends Controller
 {
     /**
      * Menginisialisasi Google Client.
      */
-private function getGoogleClient(): Client
-{
-    // 1. Ambil seluruh isi JSON dari environment variable yang kita buat di Railway.
-    $credentialsJson = env('GOOGLE_CREDENTIALS_JSON');
-
-    // 2. Cek apakah variabelnya ada. Jika tidak, berikan error yang jelas.
-    if (empty($credentialsJson)) {
-        throw new Exception("Environment variable GOOGLE_CREDENTIALS_JSON tidak di-set atau kosong.");
+    private function getGoogleClient(): Client
+    {
+        $credentialsJson = env('GOOGLE_CREDENTIALS_JSON');
+        if (empty($credentialsJson)) {
+            throw new Exception("Environment variable GOOGLE_CREDENTIALS_JSON tidak di-set atau kosong.");
+        }
+        $client = new Client();
+        $client->setAuthConfig(json_decode($credentialsJson, true));
+        $client->addScope('https://www.googleapis.com/auth/analytics.readonly');
+        return $client;
     }
 
-    // 3. Buat object Google Client.
-    $client = new Client();
-    
-    // 4. Konfigurasi client menggunakan ISI DARI JSON, bukan path ke file.
-    // json_decode mengubah string JSON menjadi array yang dimengerti oleh setAuthConfig.
-    $client->setAuthConfig(json_decode($credentialsJson, true));
-    
-    $client->addScope('https://www.googleapis.com/auth/analytics.readonly');
-    return $client;
-}
-
     /**
-     * Mengambil data REALTIME dengan laporan tambahan.
+     * Mengambil data REALTIME.
+     * Menerima $propertyId dari URL.
      */
-    public function fetchRealtimeData()
+    public function fetchRealtimeData(string $propertyId)
     {
         try {
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
-            $propertyId = env('GA_PROPERTY_ID');
 
-            // Laporan standar
             $usersByPage = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['unifiedScreenName', 'deviceCategory'], ['activeUsers']);
             $usersByLocation = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['country', 'city'], ['activeUsers']);
-            $usersByPlatform = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['platform'], ['activeUsers']);
             
-            // BARU: Laporan Audiens Realtime
-            $usersByAudience = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['audienceName'], ['activeUsers']);
-
-            // BARU: Laporan "Activity Feed"
-            $activityFeed = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['minutesAgo', 'unifiedScreenName', 'city'], ['activeUsers']);
-
-
-            // Hitung total pengguna dari salah satu laporan untuk konsistensi
-            $totalActiveUsers = collect($usersByLocation['rows'] ?? [])->sum('activeUsers');
+            $totalActiveUsers = collect($usersByPage['rows'] ?? [])->sum('activeUsers');
 
             return response()->json([
                 'totalActiveUsers' => (int) $totalActiveUsers,
                 'reports' => [
                     'byPage'      => $usersByPage['rows'] ?? [],
                     'byLocation'  => $usersByLocation['rows'] ?? [],
-                    'byPlatform'  => $usersByPlatform['rows'] ?? [],
-                    'byAudience'  => $usersByAudience['rows'] ?? [], 
-                    'activityFeed'=> $activityFeed['rows'] ?? [],   
                 ]
             ]);
 
         } catch (Exception $e) {
-            return $this->handleApiException('Realtime', $e);
+            return $this->handleApiException("Realtime (Property: {$propertyId})", $e);
         }
     }
 
     /**
-     * Mengambil data HISTORIS dengan laporan tambahan dan rentang waktu dinamis.
-     * Gunakan query param `?period=7days` atau `?period=90days`. Default 28 hari.
+     * Mengambil data HISTORIS dengan filter dinamis dan laporan detail.
+     * Fungsi ini menghasilkan output yang Anda inginkan sesuai screenshot.
      */
-    public function fetchHistoricalData(Request $request)
+    public function fetchHistoricalData(Request $request, string $propertyId)
     {
         try {
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
-            $propertyId = env('GA_PROPERTY_ID');
 
-            // BARU: Logika untuk rentang waktu dinamis
+            // Logika rentang waktu dinamis
             $allowedPeriods = ['7days' => '7daysAgo', '28days' => '28daysAgo', '90days' => '90daysAgo'];
             $period = $request->query('period', '28days');
             $startDate = $allowedPeriods[$period] ?? $allowedPeriods['28days'];
             $dateRange = ['start_date' => $startDate, 'end_date' => 'today'];
 
-            // Laporan yang sudah ada...
-            $pageData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['pageTitle', 'pagePath'], ['screenPageViews', 'sessions', 'engagementRate', 'conversions'], 'screenPageViews');
-            $geoData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['country', 'city'], ['activeUsers', 'newUsers', 'sessions', 'engagementRate', 'conversions'], 'activeUsers');
-            $trafficSourceData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['sessionSourceMedium'], ['sessions', 'activeUsers', 'newUsers', 'engagementRate', 'conversions'], 'sessions');
-            $techData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['deviceCategory', 'browser', 'operatingSystem'], ['sessions', 'activeUsers'], 'sessions');
+            // Membuat filter berdasarkan query parameters (misal: ?country=Indonesia)
+            $filterExpression = $this->buildFilterExpression($request);
+
+            // Laporan utama: Pages and Screens yang detail sesuai screenshot
+            $pagesAndScreensData = $this->runHistoricalReport(
+                $analyticsData,
+                $propertyId,
+                $dateRange,
+                ['unifiedScreenName'], // Dimensi
+                [ // Metrik
+                    'screenPageViews',        // Tampilan
+                    'activeUsers',            // Pengguna aktif
+                    'averageSessionDuration', // Waktu engagement rata-rata
+                    'eventCount',             // Jumlah peristiwa
+                    'conversions',            // Peristiwa utama
+                    'totalRevenue'            // Pendapatan total
+                ],
+                'screenPageViews', // Urutkan berdasarkan Tampilan
+                50,
+                $filterExpression
+            );
             
-            // BARU: Laporan Tren Harian (untuk grafik)
-            $dailyTrendData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['date'], ['activeUsers', 'sessions'], null, 100); // limit lebih besar untuk data tren
+            // Kalkulasi manual untuk metrik "Tayangan per pengguna aktif"
+            // karena tidak disediakan langsung oleh API.
+            foreach ($pagesAndScreensData['rows'] as &$row) {
+                $views = (float)($row['screenPageViews'] ?? 0);
+                $users = (float)($row['activeUsers'] ?? 0);
+                $row['viewsPerUser'] = $users > 0 ? round($views / $users, 2) : 0;
+            }
+            unset($row);
 
-            // BARU: Laporan Event Konversi
-            $conversionEventData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['eventName'], ['conversions'], 'conversions');
+            // Kalkulasi "Tayangan per pengguna aktif" untuk baris Total
+            $totalViews = (float)($pagesAndScreensData['totals']['screenPageViews'] ?? 0);
+            $totalUsers = (float)($pagesAndScreensData['totals']['activeUsers'] ?? 0);
+            $pagesAndScreensData['totals']['viewsPerUser'] = $totalUsers > 0 ? round($totalViews / $totalUsers, 2) : 0;
 
-            // BARU: Laporan Halaman Landing
-            $landingPageData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['landingPage'], ['sessions', 'newUsers', 'engagementRate'], 'sessions');
-
-            // Laporan Cohort tidak dipengaruhi rentang waktu dinamis
-            $retentionData = $this->runCohortReport($analyticsData, $propertyId);
-
-            // Summary tetap diambil dari data paling relevan
-            $summaryTotals = $geoData['totals'];
-            $summary = [
-                'activeUsers'     => (int) ($summaryTotals['activeUsers'] ?? 0),
-                'newUsers'        => (int) ($summaryTotals['newUsers'] ?? 0),
-                'sessions'        => (int) ($summaryTotals['sessions'] ?? 0),
-                'conversions'     => (int) ($summaryTotals['conversions'] ?? 0),
-                'screenPageViews' => (int) ($pageData['totals']['screenPageViews'] ?? 0),
-                'engagementRate'  => round((float)($summaryTotals['engagementRate'] ?? 0) * 100, 2) . '%',
-                'averageSessionDuration' => gmdate("i:s", (int)($pageData['totals']['averageSessionDuration'] ?? 0)),
-            ];
+            // Laporan lain sebagai data pendukung jika dibutuhkan
+            $geoData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['country', 'city'], ['activeUsers', 'newUsers', 'sessions'], 'activeUsers', 25, $filterExpression);
+            $dailyTrendData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['date'], ['activeUsers', 'sessions'], null, 100, $filterExpression);
+            $retentionData = $this->runCohortReport($analyticsData, $propertyId); // Fungsi Cohort juga disertakan
 
             return response()->json([
-                'summary'   => $summary,
-                'reports' => [
-                    'dailyTrends'       => $dailyTrendData['rows'] ?? [],
-                    'pages'             => $pageData['rows'] ?? [],
-                    'landingPages'      => $landingPageData['rows'] ?? [],
-                    'geography'         => $geoData['rows'] ?? [],
-                    'trafficSources'    => $trafficSourceData['rows'] ?? [],
-                    'conversionEvents'  => $conversionEventData['rows'] ?? [],
-                    'technology'        => $techData['rows'] ?? [],
-                    'userRetention'     => $retentionData ?? [],
+                'metadata' => [
+                    'propertyId' => $propertyId,
+                    'period' => $period,
+                    'filtersApplied' => $request->only(['country', 'city', 'pageTitle', 'sourceMedium'])
+                ],
+                // Laporan utama yang Anda minta
+                'pagesAndScreensReport' => $pagesAndScreensData,
+                // Laporan tambahan
+                'otherReports' => [
+                    'dailyTrends' => $dailyTrendData['rows'] ?? [],
+                    'geography'   => $geoData['rows'] ?? [],
+                    'userRetention' => $retentionData ?? []
                 ]
             ]);
+
         } catch (Exception $e) {
-            return $this->handleApiException('Historis', $e);
+            return $this->handleApiException("Historis (Property: {$propertyId})", $e);
         }
     }
-    
+
     // --- HELPER FUNCTIONS ---
+
+    /**
+     * Fungsi untuk membuat objek FilterExpression dari Request.
+     */
+    private function buildFilterExpression(Request $request): ?FilterExpression
+    {
+        $filters = [];
+        $supportedFilters = [
+            'country' => 'country',
+            'city' => 'city',
+            'pageTitle' => 'pageTitle',
+            'sourceMedium' => 'sessionSourceMedium'
+        ];
+
+        foreach ($supportedFilters as $queryParam => $dimensionName) {
+            if ($request->has($queryParam)) {
+                $filters[] = new Filter([
+                    'field_name' => $dimensionName,
+                    'string_filter' => new StringFilter([
+                        'match_type' => 'CONTAINS',
+                        'value' => $request->query($queryParam),
+                        'case_sensitive' => false
+                    ])
+                ]);
+            }
+        }
+
+        if (empty($filters)) {
+            return null;
+        }
+
+        return new FilterExpression(['and_group' => new FilterExpressionList(['expressions' => $filters])]);
+    }
 
     private function runRealtimeReportHelper($analyticsData, $propertyId, array $dimensions, array $metrics): array
     {
@@ -174,42 +194,68 @@ private function getGoogleClient(): Client
         return $result;
     }
 
-    private function runHistoricalReport($analyticsData, $propertyId, array $dateRangeConfig, array $dimensions, array $metrics, ?string $orderByMetric = null, int $limit = 25): array
+    /**
+     * Helper untuk menjalankan laporan historis dengan filter.
+     */
+    private function runHistoricalReport($analyticsData, $propertyId, array $dateRangeConfig, array $dimensions, array $metrics, ?string $orderByMetric = null, int $limit = 25, ?FilterExpression $filterExpression = null): array
     {
         $dimensionObjects = array_map(fn($name) => new Dimension(['name' => $name]), $dimensions);
         $metricObjects = array_map(fn($name) => new Metric(['name' => $name]), $metrics);
-        $requestConfig = ['dateRanges' => [new GoogleDateRange($dateRangeConfig)],'dimensions' => $dimensionObjects,'metrics' => $metricObjects,'limit' => $limit,];
-        if ($orderByMetric) { $requestConfig['orderBys'] = [new OrderBy(['metric' => new MetricOrderBy(['metric_name' => $orderByMetric]), 'desc' => true])]; }
+
+        $requestConfig = [
+            'dateRanges' => [new GoogleDateRange($dateRangeConfig)],
+            'dimensions' => $dimensionObjects,
+            'metrics' => $metricObjects,
+            'limit' => $limit,
+            'metricAggregations' => ['TOTAL'] 
+        ];
+
+        if ($orderByMetric) {
+            $requestConfig['orderBys'] = [new OrderBy(['metric' => new MetricOrderBy(['metric_name' => $orderByMetric]), 'desc' => true])];
+        }
+
+        if ($filterExpression) {
+            $requestConfig['dimensionFilter'] = $filterExpression;
+        }
+
         $request = new RunReportRequest($requestConfig);
         $response = $analyticsData->properties->runReport('properties/' . $propertyId, $request);
+        
         $result = ['rows' => [], 'totals' => []];
+
         foreach ($response->getRows() as $row) {
             $rowData = [];
             foreach ($row->getDimensionValues() as $i => $dimValue) {
-                // Format tanggal agar lebih mudah dibaca di frontend
-                if ($dimensions[$i] === 'date') {
-                    $rowData[$dimensions[$i]] = Carbon::createFromFormat('Ymd', $dimValue->getValue())->format('Y-m-d');
-                } else {
-                    $rowData[$dimensions[$i]] = $dimValue->getValue();
-                }
+                $dimName = $dimensions[$i];
+                $rowData[$dimName] = ($dimName === 'date')
+                    ? Carbon::createFromFormat('Ymd', $dimValue->getValue())->format('Y-m-d')
+                    : $dimValue->getValue();
             }
-            foreach ($row->getMetricValues() as $i => $metricValue) { $rowData[$metrics[$i]] = $metricValue->getValue(); }
+            foreach ($row->getMetricValues() as $i => $metricValue) {
+                $rowData[$metrics[$i]] = $metricValue->getValue();
+            }
             $result['rows'][] = $rowData;
         }
+
         if ($response->getTotals() && count($response->getTotals()) > 0) {
             $totalsRow = $response->getTotals()[0];
-            foreach ($totalsRow->getMetricValues() as $i => $metricValue) { $result['totals'][$metrics[$i]] = $metricValue->getValue(); }
+            foreach ($totalsRow->getMetricValues() as $i => $metricValue) {
+                $result['totals'][$metrics[$i]] = $metricValue->getValue();
+            }
         }
-        if ($orderByMetric === null && !empty($result['rows'])) {
-             // Urutkan data tren harian berdasarkan tanggal
+        
+        if ($orderByMetric === null && !empty($result['rows']) && isset($result['rows'][0]['date'])) {
             usort($result['rows'], fn($a, $b) => $a['date'] <=> $b['date']);
         }
+        
         return $result;
     }
 
+    /**
+     * Helper untuk menjalankan laporan retensi (Cohort).
+     */
     private function runCohortReport($analyticsData, $propertyId): array
     {
-        // ... Fungsi ini tidak perlu diubah, sudah sangat baik ...
         $cohortSpec = new CohortSpec(['cohorts' => [ new \Google\Service\AnalyticsData\Cohort(['name' => 'cohort_week_0', 'dimension' => 'firstTouchDate', 'dateRange' => new GoogleDateRange(['start_date' => '7daysAgo', 'end_date' => 'today'])]), new \Google\Service\AnalyticsData\Cohort(['name' => 'cohort_week_1', 'dimension' => 'firstTouchDate', 'dateRange' => new GoogleDateRange(['start_date' => '14daysAgo', 'end_date' => '8daysAgo'])]), new \Google\Service\AnalyticsData\Cohort(['name' => 'cohort_week_2', 'dimension' => 'firstTouchDate', 'dateRange' => new GoogleDateRange(['start_date' => '21daysAgo', 'end_date' => '15daysAgo'])]), new \Google\Service\AnalyticsData\Cohort(['name' => 'cohort_week_3', 'dimension' => 'firstTouchDate', 'dateRange' => new GoogleDateRange(['start_date' => '28daysAgo', 'end_date' => '22daysAgo'])]), ], 'cohortsRange' => new \Google\Service\AnalyticsData\CohortsRange(['granularity' => 'WEEKLY', 'start_offset' => 0, 'end_offset' => 4]), 'cohortReportSettings' => new \Google\Service\AnalyticsData\CohortReportSettings(['accumulate' => false]), ]);
         $request = new RunReportRequest(['cohortSpec' => $cohortSpec, 'dimensions' => [new Dimension(['name' => 'cohort']), new Dimension(['name' => 'cohortNthWeek'])], 'metrics' => [new Metric(['name' => 'cohortActiveUsers'])], ]);
         $response = $analyticsData->properties->runReport('properties/' . $propertyId, $request);
@@ -235,7 +281,10 @@ private function getGoogleClient(): Client
         }
         return $formattedOutput;
     }
-
+    
+    /**
+     * Helper untuk menangani error API.
+     */
     private function handleApiException(string $context, Exception $e): \Illuminate\Http\JsonResponse
     {
         $message = $e->getMessage();
