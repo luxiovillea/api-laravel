@@ -50,27 +50,22 @@ class AnalyticsController extends Controller
             ];
 
             return response()->json(array_filter($options));
-
         } catch (Exception $e) {
             return $this->handleApiException('Filter Options', $e);
         }
     }
-    
+
     public function fetchHistoricalData(Request $request)
     {
         try {
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
             $propertyId = env('GA_PROPERTY_ID');
-
             $dateRange = $this->parseDateRange($request);
             $filters = $this->parseFilters($request);
             
             $trafficSourceData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['sessionSourceMedium'], ['sessions', 'activeUsers', 'conversions'], 'sessions', 25, $filters);
-            
-            // PERBAIKAN: Mengganti 'averageEngagementTime' dengan 'averageSessionDuration'
             $detailedPageReport = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['pageTitle'], ['screenPageViews', 'activeUsers', 'averageSessionDuration'], 'screenPageViews', 10, $filters);
-            
             $dailyTrendData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['date'], ['activeUsers', 'sessions'], null, 100, $filters);
             $retentionData = $this->runCohortReport($analyticsData, $propertyId);
 
@@ -98,14 +93,13 @@ class AnalyticsController extends Controller
             return $this->handleApiException('Historis', $e);
         }
     }
-    
+
     public function getSegmentedData(Request $request)
     {
         try {
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
             $propertyId = env('GA_PROPERTY_ID');
-            
             $dateRange = $this->parseDateRange($request);
             $baseFilters = $this->parseFilters($request);
             
@@ -134,13 +128,12 @@ class AnalyticsController extends Controller
                 'dateRange' => $dateRange,
                 'segments' => $segmentData
             ]);
-            
         } catch (Exception $e) {
             return $this->handleApiException('Segmented Data', $e);
         }
     }
 
-    // --- Helper Functions (Tidak ada perubahan di bawah ini) ---
+    // --- Helper Functions ---
 
     private function parseFilters(Request $request): array
     {
@@ -154,7 +147,6 @@ class AnalyticsController extends Controller
         if ($period === 'custom' && $request->has(['start_date', 'end_date'])) {
             return ['start_date' => $request->get('start_date'), 'end_date' => $request->get('end_date')];
         }
-        
         $dateMap = ['7daysAgo' => '7daysAgo', '28daysAgo' => '28daysAgo', '90daysAgo' => '90daysAgo'];
         return ['start_date' => $dateMap[$period] ?? '28daysAgo', 'end_date' => 'today'];
     }
@@ -172,21 +164,13 @@ class AnalyticsController extends Controller
     private function createFilterExpression(array $filters): ?FilterExpression
     {
         if (empty($filters)) return null;
-
         $filterExpressions = [];
         foreach ($filters as $dimension => $value) {
             if (empty($value)) continue;
-            $filterExpressions[] = new FilterExpression([
-                'filter' => new Filter([
-                    'field_name' => $dimension,
-                    'string_filter' => new StringFilter(['match_type' => 'EXACT', 'value' => $value])
-                ])
-            ]);
+            $filterExpressions[] = new FilterExpression(['filter' => new Filter(['field_name' => $dimension, 'string_filter' => new StringFilter(['match_type' => 'EXACT', 'value' => $value])])]);
         }
-        
         if (count($filterExpressions) === 0) return null;
         if (count($filterExpressions) === 1) return $filterExpressions[0];
-        
         return new FilterExpression(['and_group' => new FilterExpressionList(['expressions' => $filterExpressions])]);
     }
 
@@ -199,17 +183,13 @@ class AnalyticsController extends Controller
             'limit' => $limit,
             'metricAggregations' => ['TOTAL']
         ];
-        
         if ($filterExpression = $this->createFilterExpression($filters)) {
             $requestConfig['dimension_filter'] = $filterExpression;
         }
-
         if ($orderByMetric) { 
             $requestConfig['orderBys'] = [new OrderBy(['metric' => new MetricOrderBy(['metric_name' => $orderByMetric]), 'desc' => true])]; 
         }
-
         $response = $analyticsData->properties->runReport('properties/' . $propertyId, new RunReportRequest($requestConfig));
-        
         $result = ['rows' => [], 'totals' => []];
         foreach ($response->getRows() as $row) {
             $rowData = [];
@@ -221,7 +201,6 @@ class AnalyticsController extends Controller
             }
             $result['rows'][] = $rowData;
         }
-
         if (count($response->getTotals()) > 0) {
             foreach ($response->getTotals()[0]->getMetricValues() as $i => $metricValue) { 
                 $result['totals'][$metrics[$i]] = (float)$metricValue->getValue();
@@ -232,10 +211,19 @@ class AnalyticsController extends Controller
 
     private function runCohortReport($analyticsData, $propertyId): array
     {
+        // PERBAIKAN UTAMA: Mengganti nama cohort agar tidak diawali "cohort_"
         $cohortSpec = new CohortSpec([
             'cohorts' => [ 
-                new \Google\Service\AnalyticsData\Cohort(['name' => 'cohort_week_0', 'dimension' => 'firstTouchDate', 'dateRange' => new GoogleDateRange(['start_date' => '7daysAgo', 'end_date' => 'today'])]), 
-                new \Google\Service\AnalyticsData\Cohort(['name' => 'cohort_week_1', 'dimension' => 'firstTouchDate', 'dateRange' => new GoogleDateRange(['start_date' => '14daysAgo', 'end_date' => '8daysAgo'])]), 
+                new \Google\Service\AnalyticsData\Cohort([
+                    'name' => 'week_0', // NAMA DIGANTI
+                    'dimension' => 'firstTouchDate', 
+                    'dateRange' => new GoogleDateRange(['start_date' => '7daysAgo', 'end_date' => 'today'])
+                ]), 
+                new \Google\Service\AnalyticsData\Cohort([
+                    'name' => 'week_1', // NAMA DIGANTI
+                    'dimension' => 'firstTouchDate', 
+                    'dateRange' => new GoogleDateRange(['start_date' => '14daysAgo', 'end_date' => '8daysAgo'])
+                ]), 
             ], 
             'cohortsRange' => new \Google\Service\AnalyticsData\CohortsRange(['granularity' => 'WEEKLY', 'start_offset' => 0, 'end_offset' => 4]), 
             'cohortReportSettings' => new \Google\Service\AnalyticsData\CohortReportSettings(['accumulate' => false]), 
