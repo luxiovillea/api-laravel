@@ -2,7 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\AnalyticsController; // Pastikan use statement ini ada di atas
+use App\Http\Controllers\AnalyticsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -15,12 +15,17 @@ use App\Http\Controllers\AnalyticsController; // Pastikan use statement ini ada 
 |
 */
 
-// Ini route bawaan, bisa Anda hapus atau biarkan saja
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
+// == Rute untuk Google Analytics Dashboard ==
 
-// == KODE ANDA DITARUH DI SINI ==
-Route::get('/analytics-data', [AnalyticsController::class, 'fetchRealtimeData']);
+// 1. Mendapatkan laporan historis utama dengan filter
 Route::get('/analytics-historical', [AnalyticsController::class, 'fetchHistoricalData']);
+
+// 2. Mendapatkan semua opsi yang bisa dipilih untuk filter dropdown
+Route::get('/analytics-filter-options', [AnalyticsController::class, 'getFilterOptions']);
+
+// 3. Mendapatkan data perbandingan antar segmen (misal: Pengguna Baru vs Pengguna Kembali)
+Route::get('/analytics-segmented-data', [AnalyticsController::class, 'getSegmentedData']);
