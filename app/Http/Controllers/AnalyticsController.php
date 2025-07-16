@@ -55,10 +55,7 @@ class AnalyticsController extends Controller
             return $this->handleApiException('Filter Options', $e);
         }
     }
-
-    /**
-     * PERBAIKAN: Menambahkan `Request $request` ke parameter fungsi.
-     */
+    
     public function fetchHistoricalData(Request $request)
     {
         try {
@@ -70,16 +67,20 @@ class AnalyticsController extends Controller
             $filters = $this->parseFilters($request);
             
             $trafficSourceData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['sessionSourceMedium'], ['sessions', 'activeUsers', 'conversions'], 'sessions', 25, $filters);
-            $detailedPageReport = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['pageTitle'], ['screenPageViews', 'activeUsers', 'averageEngagementTime'], 'screenPageViews', 10, $filters);
+            
+            // PERBAIKAN: Mengganti 'averageEngagementTime' dengan 'averageSessionDuration'
+            $detailedPageReport = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['pageTitle'], ['screenPageViews', 'activeUsers', 'averageSessionDuration'], 'screenPageViews', 10, $filters);
+            
             $dailyTrendData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['date'], ['activeUsers', 'sessions'], null, 100, $filters);
             $retentionData = $this->runCohortReport($analyticsData, $propertyId);
 
-            $summaryTotals = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, [], ['activeUsers', 'sessions', 'engagementRate', 'bounceRate'], null, 1, $filters)['totals'];
+            $summaryTotals = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, [], ['activeUsers', 'sessions', 'engagementRate', 'bounceRate', 'averageSessionDuration'], null, 1, $filters)['totals'];
             $summary = [
                 'activeUsers'     => (int) ($summaryTotals['activeUsers'] ?? 0),
                 'sessions'        => (int) ($summaryTotals['sessions'] ?? 0),
                 'engagementRate'  => round((float)($summaryTotals['engagementRate'] ?? 0) * 100, 2),
                 'bounceRate'      => round((float)($summaryTotals['bounceRate'] ?? 0) * 100, 2),
+                'averageSessionDuration' => gmdate("i\m s\s", (int)($summaryTotals['averageSessionDuration'] ?? 0)),
             ];
 
             return response()->json([
@@ -98,9 +99,6 @@ class AnalyticsController extends Controller
         }
     }
     
-    /**
-     * PERBAIKAN: Menambahkan `Request $request` ke parameter fungsi.
-     */
     public function getSegmentedData(Request $request)
     {
         try {
@@ -142,12 +140,12 @@ class AnalyticsController extends Controller
         }
     }
 
-    // --- Helper Functions ---
+    // --- Helper Functions (Tidak ada perubahan di bawah ini) ---
 
     private function parseFilters(Request $request): array
     {
         $filters = $request->get('filters', []);
-        return is_array($filters) ? array_filter($filters) : []; // array_filter untuk menghapus nilai kosong
+        return is_array($filters) ? array_filter($filters) : [];
     }
 
     private function parseDateRange(Request $request): array
@@ -157,19 +155,14 @@ class AnalyticsController extends Controller
             return ['start_date' => $request->get('start_date'), 'end_date' => $request->get('end_date')];
         }
         
-        $dateMap = [
-            '7daysAgo' => '7daysAgo',
-            '28daysAgo' => '28daysAgo',
-            '90daysAgo' => '90daysAgo',
-        ];
-
+        $dateMap = ['7daysAgo' => '7daysAgo', '28daysAgo' => '28daysAgo', '90daysAgo' => '90daysAgo'];
         return ['start_date' => $dateMap[$period] ?? '28daysAgo', 'end_date' => 'today'];
     }
 
     private function getUniqueDimensionValues($analyticsData, $propertyId, array $dateRange, string $dimension, int $limit = 250): array
     {
         try {
-            $result = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, [$dimension], [], 'activeUsers', $limit);
+            $result = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, [$dimension], ['activeUsers'], 'activeUsers', $limit);
             return array_map(fn($row) => $row[$dimension] ?? '(not set)', $result['rows'] ?? []);
         } catch (Exception $e) {
             return [];
