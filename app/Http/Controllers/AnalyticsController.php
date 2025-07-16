@@ -12,24 +12,16 @@ use Google\Service\AnalyticsData\Metric;
 use Google\Service\AnalyticsData\RunReportRequest;
 use Google\Service\AnalyticsData\OrderBy;
 use Google\Service\AnalyticsData\MetricOrderBy;
-use Google\Service\AnalyticsData\RunRealtimeReportRequest;
 use Google\Service\AnalyticsData\FilterExpression;
 use Google\Service\AnalyticsData\Filter;
 use Google\Service\AnalyticsData\StringFilter;
-use Google\Service\AnalyticsData\InListFilter;
 use Google\Service\AnalyticsData\FilterExpressionList;
 use Exception;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
-/**
- * Controller komprehensif untuk Google Analytics 4 Data API.
- * Versi ini menarik laporan utama dengan filter dinamis dan fungsi lanjutan yang sudah diperbaiki.
- */
 class AnalyticsController extends Controller
 {
-    /**
-     * Menginisialisasi Google Client.
-     */
     private function getGoogleClient(): Client
     {
         $credentialsJson = env('GOOGLE_CREDENTIALS_JSON');
@@ -42,9 +34,6 @@ class AnalyticsController extends Controller
         return $client;
     }
 
-    /**
-     * Mendapatkan semua opsi filter yang tersedia untuk dropdown di frontend.
-     */
     public function getFilterOptions()
     {
         try {
@@ -55,16 +44,9 @@ class AnalyticsController extends Controller
 
             $options = [
                 'countries' => $this->getUniqueDimensionValues($analyticsData, $propertyId, $dateRange, 'country'),
-                'cities' => $this->getUniqueDimensionValues($analyticsData, $propertyId, $dateRange, 'city'),
                 'deviceCategories' => $this->getUniqueDimensionValues($analyticsData, $propertyId, $dateRange, 'deviceCategory'),
-                'browsers' => $this->getUniqueDimensionValues($analyticsData, $propertyId, $dateRange, 'browser'),
-                'operatingSystems' => $this->getUniqueDimensionValues($analyticsData, $propertyId, $dateRange, 'operatingSystem'),
                 'trafficSources' => $this->getUniqueDimensionValues($analyticsData, $propertyId, $dateRange, 'sessionSourceMedium'),
-                'landingPages' => $this->getUniqueDimensionValues($analyticsData, $propertyId, $dateRange, 'landingPage'),
                 'pageTitles' => $this->getUniqueDimensionValues($analyticsData, $propertyId, $dateRange, 'pageTitle'),
-                'eventNames' => $this->getUniqueDimensionValues($analyticsData, $propertyId, $dateRange, 'eventName'),
-                'ageGroups' => $this->getUniqueDimensionValues($analyticsData, $propertyId, $dateRange, 'age'),
-                'genders' => $this->getUniqueDimensionValues($analyticsData, $propertyId, $dateRange, 'gender'),
             ];
 
             return response()->json(array_filter($options));
@@ -75,7 +57,7 @@ class AnalyticsController extends Controller
     }
 
     /**
-     * Mengambil data HISTORIS dengan filter dinamis.
+     * PERBAIKAN: Menambahkan `Request $request` ke parameter fungsi.
      */
     public function fetchHistoricalData(Request $request)
     {
@@ -87,22 +69,17 @@ class AnalyticsController extends Controller
             $dateRange = $this->parseDateRange($request);
             $filters = $this->parseFilters($request);
             
-            // Laporan utama
             $trafficSourceData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['sessionSourceMedium'], ['sessions', 'activeUsers', 'conversions'], 'sessions', 25, $filters);
-            $detailedPageReport = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['pageTitle'], ['screenPageViews', 'activeUsers', 'averageEngagementTime', 'conversions'], 'screenPageViews', 10, $filters);
+            $detailedPageReport = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['pageTitle'], ['screenPageViews', 'activeUsers', 'averageEngagementTime'], 'screenPageViews', 10, $filters);
             $dailyTrendData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['date'], ['activeUsers', 'sessions'], null, 100, $filters);
-            
-            // PERBAIKAN: Cohort report tidak mendukung filter, jadi parameter filter dihilangkan.
             $retentionData = $this->runCohortReport($analyticsData, $propertyId);
 
-            // Summary
-            $summaryTotals = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, [], ['activeUsers', 'newUsers', 'sessions', 'conversions', 'engagementRate', 'totalRevenue', 'bounceRate'], null, 1, $filters)['totals'];
+            $summaryTotals = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, [], ['activeUsers', 'sessions', 'engagementRate', 'bounceRate'], null, 1, $filters)['totals'];
             $summary = [
                 'activeUsers'     => (int) ($summaryTotals['activeUsers'] ?? 0),
                 'sessions'        => (int) ($summaryTotals['sessions'] ?? 0),
-                'engagementRate'  => round((float)($summaryTotals['engagementRate'] ?? 0) * 100, 2) . '%',
-                'bounceRate'      => round((float)($summaryTotals['bounceRate'] ?? 0) * 100, 2) . '%',
-                'totalRevenue'    => number_format((float)($summaryTotals['totalRevenue'] ?? 0), 2),
+                'engagementRate'  => round((float)($summaryTotals['engagementRate'] ?? 0) * 100, 2),
+                'bounceRate'      => round((float)($summaryTotals['bounceRate'] ?? 0) * 100, 2),
             ];
 
             return response()->json([
@@ -120,9 +97,9 @@ class AnalyticsController extends Controller
             return $this->handleApiException('Historis', $e);
         }
     }
-
+    
     /**
-     * Mengambil data perbandingan antar segmen pengguna.
+     * PERBAIKAN: Menambahkan `Request $request` ke parameter fungsi.
      */
     public function getSegmentedData(Request $request)
     {
@@ -134,28 +111,23 @@ class AnalyticsController extends Controller
             $dateRange = $this->parseDateRange($request);
             $baseFilters = $this->parseFilters($request);
             
-            // PERBAIKAN: Menggunakan dimensi yang valid untuk segmentasi.
             $segments = [
                 'new_users' => ['newVsReturning' => 'new'],
                 'returning_users' => ['newVsReturning' => 'returning'],
                 'mobile_users' => ['deviceCategory' => 'mobile'],
                 'desktop_users' => ['deviceCategory' => 'desktop'],
                 'organic_traffic' => ['sessionDefaultChannelGroup' => 'Organic Search'],
-                'paid_traffic' => ['sessionDefaultChannelGroup' => 'Paid Search'],
-                'direct_traffic' => ['sessionDefaultChannelGroup' => 'Direct'],
             ];
             
             $segmentData = [];
             foreach ($segments as $segmentName => $segmentFilter) {
                 $segmentFilters = array_merge($baseFilters, $segmentFilter);
-                
-                $data = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, [], ['activeUsers', 'sessions', 'engagementRate', 'conversions'], null, 1, $segmentFilters);
+                $data = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, [], ['activeUsers', 'sessions', 'engagementRate'], null, 1, $segmentFilters);
                 
                 $segmentData[$segmentName] = [
                     'activeUsers' => (int)($data['totals']['activeUsers'] ?? 0),
                     'sessions' => (int)($data['totals']['sessions'] ?? 0),
                     'engagementRate' => round(($data['totals']['engagementRate'] ?? 0) * 100, 2),
-                    'conversions' => (int)($data['totals']['conversions'] ?? 0),
                 ];
             }
             
@@ -175,7 +147,7 @@ class AnalyticsController extends Controller
     private function parseFilters(Request $request): array
     {
         $filters = $request->get('filters', []);
-        return is_array($filters) ? $filters : [];
+        return is_array($filters) ? array_filter($filters) : []; // array_filter untuk menghapus nilai kosong
     }
 
     private function parseDateRange(Request $request): array
@@ -184,16 +156,23 @@ class AnalyticsController extends Controller
         if ($period === 'custom' && $request->has(['start_date', 'end_date'])) {
             return ['start_date' => $request->get('start_date'), 'end_date' => $request->get('end_date')];
         }
-        return ['start_date' => $period, 'end_date' => 'today'];
+        
+        $dateMap = [
+            '7daysAgo' => '7daysAgo',
+            '28daysAgo' => '28daysAgo',
+            '90daysAgo' => '90daysAgo',
+        ];
+
+        return ['start_date' => $dateMap[$period] ?? '28daysAgo', 'end_date' => 'today'];
     }
 
     private function getUniqueDimensionValues($analyticsData, $propertyId, array $dateRange, string $dimension, int $limit = 250): array
     {
         try {
-            $result = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, [$dimension], ['activeUsers'], 'activeUsers', $limit);
+            $result = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, [$dimension], [], 'activeUsers', $limit);
             return array_map(fn($row) => $row[$dimension] ?? '(not set)', $result['rows'] ?? []);
         } catch (Exception $e) {
-            return []; // Return empty on error
+            return [];
         }
     }
 
@@ -204,14 +183,10 @@ class AnalyticsController extends Controller
         $filterExpressions = [];
         foreach ($filters as $dimension => $value) {
             if (empty($value)) continue;
-
             $filterExpressions[] = new FilterExpression([
                 'filter' => new Filter([
                     'field_name' => $dimension,
-                    'string_filter' => new StringFilter([
-                        'match_type' => 'EXACT',
-                        'value' => $value
-                    ])
+                    'string_filter' => new StringFilter(['match_type' => 'EXACT', 'value' => $value])
                 ])
             ]);
         }
@@ -240,7 +215,7 @@ class AnalyticsController extends Controller
             $requestConfig['orderBys'] = [new OrderBy(['metric' => new MetricOrderBy(['metric_name' => $orderByMetric]), 'desc' => true])]; 
         }
 
-        $response = $analyticsData->properties->runReport('properties/' . $propertyId, $request);
+        $response = $analyticsData->properties->runReport('properties/' . $propertyId, new RunReportRequest($requestConfig));
         
         $result = ['rows' => [], 'totals' => []];
         foreach ($response->getRows() as $row) {
@@ -281,7 +256,6 @@ class AnalyticsController extends Controller
         
         $response = $analyticsData->properties->runReport('properties/' . $propertyId, $request);
         
-        // ... (sisanya sama, tidak perlu diubah)
         $retentionTable = [];
         foreach ($response->getRows() as $row) {
             $cohortName = $row->getDimensionValues()[0]->getValue();
@@ -312,7 +286,7 @@ class AnalyticsController extends Controller
         if (json_last_error() === JSON_ERROR_NONE && isset($decoded['error']['message'])) {
             $message = $decoded['error']['message'];
         }
-        \Log::error("GA API Error in {$context}: " . $message, ['exception' => $e]);
+        Log::error("GA API Error in {$context}: " . $message, ['exception' => $e]);
         return response()->json(['error' => "Gagal mengambil data {$context}: " . $message], 500);
     }
 }
