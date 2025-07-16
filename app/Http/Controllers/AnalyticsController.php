@@ -18,7 +18,7 @@ use Carbon\Carbon;
 
 /**
  * Controller komprehensif untuk Google Analytics 4 Data API.
- * Versi ini menarik hampir semua laporan utama dari dashboard GA4.
+ * Versi ini menarik hampir semua laporan utama dari dashboard GA4 dengan benar.
  */
 class AnalyticsController extends Controller
 {
@@ -47,17 +47,17 @@ class AnalyticsController extends Controller
             $analyticsData = new AnalyticsData($client);
             $propertyId = env('GA_PROPERTY_ID');
 
-            // --- Laporan Realtime yang sudah ada ---
+            // --- Laporan Realtime yang valid ---
             $usersByPage = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['unifiedScreenName', 'deviceCategory'], ['activeUsers']);
             $usersByLocation = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['country', 'city'], ['activeUsers']);
             $usersByPlatform = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['platform'], ['activeUsers']);
             $usersByAudience = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['audienceName'], ['activeUsers']);
-            $activityFeed = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['minutesAgo', 'unifiedScreenName', 'city'], ['activeUsers']);
-
-            // --- BARU: Laporan Realtime Tambahan ---
-            $usersByTrafficSource = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['source', 'medium'], ['activeUsers']);
             $eventsRealtime = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['eventName'], ['eventCount']);
             $conversionsRealtime = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['eventName'], ['conversions']);
+            $activityFeed = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['minutesAgo', 'unifiedScreenName', 'city'], ['activeUsers']);
+            
+            // DIHAPUS: Laporan sumber lalu lintas realtime karena dimensinya tidak valid untuk Realtime API.
+            // $usersByTrafficSource = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['source', 'medium'], ['activeUsers']);
 
             // Hitung total pengguna dari laporan yang paling akurat
             $totalActiveUsers = $this->getRealtimeTotalUsers($analyticsData, $propertyId);
@@ -65,14 +65,13 @@ class AnalyticsController extends Controller
             return response()->json([
                 'totalActiveUsers' => $totalActiveUsers,
                 'reports' => [
-                    'byPage'            => $usersByPage['rows'] ?? [],
-                    'byLocation'        => $usersByLocation['rows'] ?? [],
-                    'byPlatform'        => $usersByPlatform['rows'] ?? [],
-                    'byAudience'        => $usersByAudience['rows'] ?? [],
-                    'byTrafficSource'   => $usersByTrafficSource['rows'] ?? [], // Data baru
-                    'events'            => $eventsRealtime['rows'] ?? [],       // Data baru
-                    'conversions'       => $conversionsRealtime['rows'] ?? [],  // Data baru
-                    'activityFeed'      => $activityFeed['rows'] ?? [],
+                    'byPage'      => $usersByPage['rows'] ?? [],
+                    'byLocation'  => $usersByLocation['rows'] ?? [],
+                    'byPlatform'  => $usersByPlatform['rows'] ?? [],
+                    'byAudience'  => $usersByAudience['rows'] ?? [],
+                    'events'      => $eventsRealtime['rows'] ?? [],
+                    'conversions' => $conversionsRealtime['rows'] ?? [],
+                    'activityFeed'=> $activityFeed['rows'] ?? [],
                 ]
             ]);
 
@@ -96,29 +95,34 @@ class AnalyticsController extends Controller
             $startDate = $allowedPeriods[$period] ?? $allowedPeriods['28days'];
             $dateRange = ['start_date' => $startDate, 'end_date' => 'today'];
 
-            // === Laporan yang sudah ada & Laporan dari permintaan sebelumnya ===
-            $geoData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['country', 'city'], ['activeUsers', 'newUsers', 'sessions'], 'activeUsers');
-            $techData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['deviceCategory', 'browser', 'operatingSystem'], ['sessions', 'activeUsers'], 'sessions');
-            $dailyTrendData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['date'], ['activeUsers', 'sessions'], null, 100);
-            $landingPageData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['landingPage'], ['sessions', 'newUsers', 'engagementRate'], 'sessions');
-            $trafficSourceData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['sessionSourceMedium'], ['sessions', 'activeUsers', 'newUsers', 'engagementRate', 'conversions'], 'sessions');
-            $detailedPageReport = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['pageTitle'], ['screenPageViews', 'activeUsers', 'screenPageViewsPerUser', 'averageEngagementTime', 'eventCount', 'conversions', 'totalRevenue'], 'screenPageViews', 10);
-
-            // === BARU: Laporan Historis Tambahan yang Super Lengkap ===
-            // 1. Laporan Akuisisi Pengguna (Bagaimana pengguna menemukan Anda pertama kali)
-            $userAcquisitionData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['firstUserSource', 'firstUserMedium', 'firstUserCampaignName'], ['newUsers', 'engagedSessions', 'engagementRate'], 'newUsers');
-
-            // 2. Laporan Semua Event (Tabel event yang lebih detail)
-            $allEventsData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['eventName'], ['eventCount', 'totalUsers', 'eventCountPerUser'], 'eventCount');
+            // === Laporan Historis Utama ===
             
-            // 3. Laporan Demografi (Usia & Jenis Kelamin)
-            // CATATAN: Data ini mungkin kosong jika Google Signals tidak aktif atau karena thresholding privasi Google.
+            // Laporan Akuisisi Lalu Lintas (Sesi) - Ini adalah laporan yang benar untuk "sumber lalu lintas"
+            $trafficSourceData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['sessionSourceMedium'], ['sessions', 'activeUsers', 'newUsers', 'engagementRate', 'conversions'], 'sessions');
+
+            // Laporan Detail Halaman (sesuai gambar pertama Anda)
+            $detailedPageReport = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['pageTitle'], ['screenPageViews', 'activeUsers', 'screenPageViewsPerUser', 'averageEngagementTime', 'eventCount', 'conversions', 'totalRevenue'], 'screenPageViews', 10);
+            
+            // Laporan Tren Harian untuk Grafik
+            $dailyTrendData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['date'], ['activeUsers', 'sessions'], null, 100);
+
+            // Laporan Halaman Landing
+            $landingPageData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['landingPage'], ['sessions', 'newUsers', 'engagementRate'], 'sessions');
+
+            // Laporan Demografi & Geografi
+            $geoData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['country', 'city'], ['activeUsers', 'newUsers', 'sessions'], 'activeUsers');
             $demographicsData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['gender', 'age'], ['activeUsers', 'sessions'], 'activeUsers');
+
+            // Laporan Teknologi (Device, Browser, OS)
+            $techData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['deviceCategory', 'browser', 'operatingSystem'], ['sessions', 'activeUsers'], 'sessions');
+
+            // Laporan Semua Event
+            $allEventsData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['eventName'], ['eventCount', 'totalUsers', 'eventCountPerUser'], 'eventCount');
             
             // --- Laporan Cohort tidak diubah ---
             $retentionData = $this->runCohortReport($analyticsData, $propertyId);
 
-            // --- Summary (menggunakan data yang paling relevan untuk total) ---
+            // --- Summary ---
             $summaryTotals = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, [], ['activeUsers', 'newUsers', 'sessions', 'conversions', 'screenPageViews', 'engagementRate', 'averageSessionDuration'])['totals'];
             $summary = [
                 'activeUsers'     => (int) ($summaryTotals['activeUsers'] ?? 0),
@@ -133,19 +137,26 @@ class AnalyticsController extends Controller
             return response()->json([
                 'summary'   => $summary,
                 'reports' => [
-                    // Laporan Historis yang Baru Ditambahkan
-                    'userAcquisition'   => $userAcquisitionData['rows'] ?? [],
-                    'allEvents'         => $allEventsData['rows'] ?? [],
-                    'demographics'      => $demographicsData['rows'] ?? [],
-                    
-                    // Laporan yang Sudah Ada
-                    'detailedPageReport'=> $detailedPageReport['rows'] ?? [],
-                    'dailyTrends'       => $dailyTrendData['rows'] ?? [],
-                    'landingPages'      => $landingPageData['rows'] ?? [],
-                    'trafficSources'    => $trafficSourceData['rows'] ?? [],
-                    'geography'         => $geoData['rows'] ?? [],
-                    'technology'        => $techData['rows'] ?? [],
-                    'userRetention'     => $retentionData ?? [],
+                    // Laporan disusun berdasarkan kategori agar mudah dibaca di frontend
+                    'overview' => [
+                        'dailyTrends'       => $dailyTrendData['rows'] ?? [],
+                    ],
+                    'engagement' => [
+                        'detailedPageReport'=> $detailedPageReport['rows'] ?? [],
+                        'landingPages'      => $landingPageData['rows'] ?? [],
+                        'allEvents'         => $allEventsData['rows'] ?? [],
+                    ],
+                    'user' => [
+                        'demographics'      => $demographicsData['rows'] ?? [],
+                        'geography'         => $geoData['rows'] ?? [],
+                        'technology'        => $techData['rows'] ?? [],
+                    ],
+                    'acquisition' => [
+                        'trafficSources'    => $trafficSourceData['rows'] ?? [],
+                    ],
+                    'retention' => [
+                        'userRetention'     => $retentionData ?? [],
+                    ],
                 ]
             ]);
         } catch (Exception $e) {
@@ -153,11 +164,10 @@ class AnalyticsController extends Controller
         }
     }
     
-    // --- HELPER FUNCTIONS (BEBERAPA DIMODIFIKASI UNTUK MENANGANI FORMAT BERBEDA) ---
+    // --- HELPER FUNCTIONS (TIDAK ADA PERUBAHAN, SUDAH BENAR) ---
 
     private function getRealtimeTotalUsers($analyticsData, $propertyId): int
     {
-        // Cara paling andal untuk mendapatkan total user realtime adalah dengan laporan tanpa dimensi.
         $response = $this->runRealtimeReportHelper($analyticsData, $propertyId, [], ['activeUsers']);
         return $response['rows'][0]['activeUsers'] ?? 0;
     }
@@ -171,7 +181,6 @@ class AnalyticsController extends Controller
             'dimensions' => $dimensionObjects, 
             'metrics' => $metricObjects, 
             'limit' => 250,
-            // Urutkan berdasarkan metrik pertama (jika ada)
             'metricAggregations' => ['TOTAL'] 
         ]);
 
@@ -200,7 +209,7 @@ class AnalyticsController extends Controller
             'dimensions' => $dimensionObjects,
             'metrics' => $metricObjects,
             'limit' => $limit,
-            'metricAggregations' => ['TOTAL'] // Untuk mendapatkan total di footer
+            'metricAggregations' => ['TOTAL']
         ];
 
         if ($orderByMetric) { 
@@ -226,7 +235,6 @@ class AnalyticsController extends Controller
             $result['rows'][] = $rowData;
         }
 
-        // Ambil data total dari footer laporan
         if ($response->getTotals() && count($response->getTotals()) > 0) {
             $totalsRow = $response->getTotals()[0];
             foreach ($totalsRow->getMetricValues() as $i => $metricValue) { 
