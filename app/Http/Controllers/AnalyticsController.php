@@ -29,26 +29,26 @@ class AnalyticsController extends Controller
     /**
      * Menginisialisasi Google Client.
      */
-private function getGoogleClient(): Client
-{
-    // 1. Ambil seluruh isi JSON dari environment variable yang kita buat di Railway.
-    $credentialsJson = env('GOOGLE_CREDENTIALS_JSON');
+    private function getGoogleClient(): Client
+    {
+        // 1. Ambil seluruh isi JSON dari environment variable yang kita buat di Railway.
+        $credentialsJson = env('GOOGLE_CREDENTIALS_JSON');
 
-    // 2. Cek apakah variabelnya ada. Jika tidak, berikan error yang jelas.
-    if (empty($credentialsJson)) {
-        throw new Exception("Environment variable GOOGLE_CREDENTIALS_JSON tidak di-set atau kosong.");
+        // 2. Cek apakah variabelnya ada. Jika tidak, berikan error yang jelas.
+        if (empty($credentialsJson)) {
+            throw new Exception("Environment variable GOOGLE_CREDENTIALS_JSON tidak di-set atau kosong.");
+        }
+
+        // 3. Buat object Google Client.
+        $client = new Client();
+        
+        // 4. Konfigurasi client menggunakan ISI DARI JSON, bukan path ke file.
+        // json_decode mengubah string JSON menjadi array yang dimengerti oleh setAuthConfig.
+        $client->setAuthConfig(json_decode($credentialsJson, true));
+        
+        $client->addScope('https://www.googleapis.com/auth/analytics.readonly');
+        return $client;
     }
-
-    // 3. Buat object Google Client.
-    $client = new Client();
-    
-    // 4. Konfigurasi client menggunakan ISI DARI JSON, bukan path ke file.
-    // json_decode mengubah string JSON menjadi array yang dimengerti oleh setAuthConfig.
-    $client->setAuthConfig(json_decode($credentialsJson, true));
-    
-    $client->addScope('https://www.googleapis.com/auth/analytics.readonly');
-    return $client;
-}
 
     /**
      * Mengambil data REALTIME dengan laporan tambahan.
@@ -102,31 +102,46 @@ private function getGoogleClient(): Client
             $analyticsData = new AnalyticsData($client);
             $propertyId = env('GA_PROPERTY_ID');
 
-            // BARU: Logika untuk rentang waktu dinamis
+            // Logika untuk rentang waktu dinamis
             $allowedPeriods = ['7days' => '7daysAgo', '28days' => '28daysAgo', '90days' => '90daysAgo'];
             $period = $request->query('period', '28days');
             $startDate = $allowedPeriods[$period] ?? $allowedPeriods['28days'];
             $dateRange = ['start_date' => $startDate, 'end_date' => 'today'];
 
-            // Laporan yang sudah ada...
+            // --- Laporan yang sudah ada (tidak diubah) ---
             $pageData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['pageTitle', 'pagePath'], ['screenPageViews', 'sessions', 'engagementRate', 'conversions'], 'screenPageViews');
             $geoData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['country', 'city'], ['activeUsers', 'newUsers', 'sessions', 'engagementRate', 'conversions'], 'activeUsers');
             $trafficSourceData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['sessionSourceMedium'], ['sessions', 'activeUsers', 'newUsers', 'engagementRate', 'conversions'], 'sessions');
             $techData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['deviceCategory', 'browser', 'operatingSystem'], ['sessions', 'activeUsers'], 'sessions');
-            
-            // BARU: Laporan Tren Harian (untuk grafik)
-            $dailyTrendData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['date'], ['activeUsers', 'sessions'], null, 100); // limit lebih besar untuk data tren
-
-            // BARU: Laporan Event Konversi
+            $dailyTrendData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['date'], ['activeUsers', 'sessions'], null, 100); 
             $conversionEventData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['eventName'], ['conversions'], 'conversions');
-
-            // BARU: Laporan Halaman Landing
             $landingPageData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['landingPage'], ['sessions', 'newUsers', 'engagementRate'], 'sessions');
+            
+            // =========================================================================
+            // == KODE TAMBAHAN: Laporan untuk replikasi data persis seperti gambar ==
+            // =========================================================================
+            $detailedPageReport = $this->runHistoricalReport(
+                $analyticsData,
+                $propertyId,
+                $dateRange,
+                ['pageTitle'], // Dimensi: Dikelompokkan berdasarkan Judul Halaman
+                [              // Metrik: Semua kolom yang ada di gambar Anda
+                    'screenPageViews',        // Tampilan
+                    'activeUsers',            // Pengguna aktif
+                    'screenPageViewsPerUser', // Tayangan per pengguna aktif
+                    'averageEngagementTime',  // Waktu engagement rata-rata
+                    'eventCount',             // Jumlah peristiwa
+                    'conversions',            // Peristiwa utama (Konversi)
+                    'totalRevenue'            // Pendapatan total
+                ],
+                'screenPageViews', // Diurutkan berdasarkan Tampilan (paling banyak)
+                10                 // Batasi 10 baris, sesuai "Baris per halaman" di gambar
+            );
 
-            // Laporan Cohort tidak dipengaruhi rentang waktu dinamis
+            // --- Laporan Cohort tidak dipengaruhi rentang waktu dinamis (tidak diubah) ---
             $retentionData = $this->runCohortReport($analyticsData, $propertyId);
 
-            // Summary tetap diambil dari data paling relevan
+            // --- Summary tetap diambil dari data paling relevan (tidak diubah) ---
             $summaryTotals = $geoData['totals'];
             $summary = [
                 'activeUsers'     => (int) ($summaryTotals['activeUsers'] ?? 0),
@@ -141,6 +156,9 @@ private function getGoogleClient(): Client
             return response()->json([
                 'summary'   => $summary,
                 'reports' => [
+                    // --- TAMBAHKAN LAPORAN BARU DI SINI ---
+                    'detailedPageReport' => $detailedPageReport['rows'] ?? [],
+                    // --- Laporan lama tetap ada ---
                     'dailyTrends'       => $dailyTrendData['rows'] ?? [],
                     'pages'             => $pageData['rows'] ?? [],
                     'landingPages'      => $landingPageData['rows'] ?? [],
@@ -156,7 +174,7 @@ private function getGoogleClient(): Client
         }
     }
     
-    // --- HELPER FUNCTIONS ---
+    // --- HELPER FUNCTIONS (TIDAK PERLU DIUBAH) ---
 
     private function runRealtimeReportHelper($analyticsData, $propertyId, array $dimensions, array $metrics): array
     {
@@ -209,7 +227,6 @@ private function getGoogleClient(): Client
 
     private function runCohortReport($analyticsData, $propertyId): array
     {
-        // ... Fungsi ini tidak perlu diubah, sudah sangat baik ...
         $cohortSpec = new CohortSpec(['cohorts' => [ new \Google\Service\AnalyticsData\Cohort(['name' => 'cohort_week_0', 'dimension' => 'firstTouchDate', 'dateRange' => new GoogleDateRange(['start_date' => '7daysAgo', 'end_date' => 'today'])]), new \Google\Service\AnalyticsData\Cohort(['name' => 'cohort_week_1', 'dimension' => 'firstTouchDate', 'dateRange' => new GoogleDateRange(['start_date' => '14daysAgo', 'end_date' => '8daysAgo'])]), new \Google\Service\AnalyticsData\Cohort(['name' => 'cohort_week_2', 'dimension' => 'firstTouchDate', 'dateRange' => new GoogleDateRange(['start_date' => '21daysAgo', 'end_date' => '15daysAgo'])]), new \Google\Service\AnalyticsData\Cohort(['name' => 'cohort_week_3', 'dimension' => 'firstTouchDate', 'dateRange' => new GoogleDateRange(['start_date' => '28daysAgo', 'end_date' => '22daysAgo'])]), ], 'cohortsRange' => new \Google\Service\AnalyticsData\CohortsRange(['granularity' => 'WEEKLY', 'start_offset' => 0, 'end_offset' => 4]), 'cohortReportSettings' => new \Google\Service\AnalyticsData\CohortReportSettings(['accumulate' => false]), ]);
         $request = new RunReportRequest(['cohortSpec' => $cohortSpec, 'dimensions' => [new Dimension(['name' => 'cohort']), new Dimension(['name' => 'cohortNthWeek'])], 'metrics' => [new Metric(['name' => 'cohortActiveUsers'])], ]);
         $response = $analyticsData->properties->runReport('properties/' . $propertyId, $request);
