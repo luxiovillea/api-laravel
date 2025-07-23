@@ -22,7 +22,6 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Controller komprehensif untuk Google Analytics 4 Data API.
- * Versi ini mempertahankan semua fungsi lama dan MENAMBAHKAN fungsi baru yang lebih fleksibel.
  */
 class AnalyticsController extends Controller
 {
@@ -60,34 +59,132 @@ class AnalyticsController extends Controller
     }
 
     // ===================================================================
-    // PENAMBAHAN: FUNGSI BARU YANG FLEKSIBEL (NAMA SUDAH DIPERBAIKI)
+    // FUNGSI UTAMA BARU: DASHBOARD SUMMARY DENGAN RINCIAN LENGKAP
     // ===================================================================
 
-    /**
-     * Endpoint fleksibel untuk laporan detail per aplikasi dengan filter dinamis.
-     * Dipanggil oleh route: /analytics/{app_key}/report
-     */
+    public function getDashboardSummary(Request $request)
+    {
+        try {
+            $client = $this->getGoogleClient();
+            $analyticsData = new AnalyticsData($client);
+            $propertyId = env('GA_PROPERTY_ID');
+            $dateRange = $this->getDateRangeFromPeriod_new($request);
+
+            $summaryData = [];
+            $appIdCounter = 1;
+
+            foreach ($this->applications as $appKey => $appConfig) {
+                
+                $appFilter = [
+                    new FilterExpression(['filter' => new Filter([
+                        'field_name' => 'pagePath',
+                        'string_filter' => new StringFilter(['value' => $appConfig['page_path_filter'], 'match_type' => 'CONTAINS'])
+                    ])])
+                ];
+
+                // PANGGILAN API 1: Metrik Utama
+                $mainMetricsReport = $this->runAdvancedHistoricalReport($analyticsData, $propertyId, $dateRange, ['date'], ['sessions', 'activeUsers', 'newUsers', 'screenPageViews', 'engagementRate', 'averageSessionDuration', 'conversions'], null, $appFilter, 1);
+                
+                // PANGGILAN API 2: Geografis
+                $geoReport = $this->runAdvancedHistoricalReport($analyticsData, $propertyId, $dateRange, ['country', 'city'], ['activeUsers'], 'activeUsers', $appFilter, 5);
+
+                // PANGGILAN API 3: Sumber Trafik
+                $trafficReport = $this->runAdvancedHistoricalReport($analyticsData, $propertyId, $dateRange, ['sessionSourceMedium'], ['sessions'], 'sessions', $appFilter, 1);
+
+                // PANGGILAN API 4: Data Teknologi
+                $techReport = $this->runAdvancedHistoricalReport(
+                    $analyticsData, $propertyId, $dateRange,
+                    ['deviceCategory', 'browser', 'operatingSystem'],
+                    ['sessions', 'activeUsers'],
+                    'sessions',
+                    $appFilter,
+                    5
+                );
+
+                // Ekstrak data dari semua laporan
+                $totals = $mainMetricsReport['totals'] ?? [];
+                
+                $topCity = 'N/A';
+                $topCountry = 'N/A';
+                if (!empty($geoReport['rows'])) {
+                    foreach ($geoReport['rows'] as $geoRow) {
+                        if (!empty($geoRow['city']) && $geoRow['city'] !== '(not set)') {
+                            $topCity = $geoRow['city'];
+                            $topCountry = $geoRow['country'] ?? 'N/A';
+                            break;
+                        }
+                    }
+                }
+
+                $topTrafficChannel = !empty($trafficReport['rows'][0]['sessionSourceMedium']) ? $trafficReport['rows'][0]['sessionSourceMedium'] : 'direct';
+
+                $formattedTechData = [];
+                if (!empty($techReport['rows'])) {
+                    foreach ($techReport['rows'] as $techRow) {
+                        $formattedTechData[] = [
+                            'deviceCategory' => $techRow['deviceCategory'] ?? 'unknown',
+                            'browser' => $techRow['browser'] ?? 'unknown',
+                            'operatingSystem' => $techRow['operatingSystem'] ?? 'unknown',
+                            'sessions' => (int)($techRow['sessions'] ?? 0),
+                            'activeUsers' => (int)($techRow['activeUsers'] ?? 0),
+                        ];
+                    }
+                }
+
+                $summaryData[] = [
+                    'id' => $appIdCounter++,
+                    'name' => $appConfig['name'],
+                    'key_metrics' => [
+                        'total_visitor' => (int)($totals['sessions'] ?? 0),
+                        'active_user' => (int)($totals['activeUsers'] ?? 0),
+                        'new_user' => (int)($totals['newUsers'] ?? 0),
+                        'page_views' => (int)($totals['screenPageViews'] ?? 0),
+                    ],
+                    'engagement' => [
+                        'engagement_rate' => round(((float)($totals['engagementRate'] ?? 0)) * 100, 2) . '%',
+                        'average_session_duration' => $this->formatDuration((float)($totals['averageSessionDuration'] ?? 0)),
+                    ],
+                    'top_sources' => [
+                        'geography' => [ 'city' => $topCity, 'country' => $topCountry, ],
+                        'traffic_channel' => $topTrafficChannel,
+                    ],
+                    'business' => [ 'conversions' => (int)($totals['conversions'] ?? 0), ],
+                    'technology_overview' => $formattedTechData,
+                ];
+            }
+
+            $finalResponse = [
+                'data' => [
+                    'applications' => $summaryData,
+                    'meta' => [ 'total' => count($summaryData), 'page' => 1, 'limit' => count($summaryData), ],
+                ],
+                'metadata' => [ 'period' => $request->query('period', 'last_7_days'), 'dateRange' => $dateRange ]
+            ];
+
+            return response()->json($finalResponse);
+
+        } catch (Exception $e) {
+            return $this->handleApiException("Ringkasan Dashboard", $e);
+        }
+    }
+
+    // ===================================================================
+    // FUNGSI-FUNGSI LAINNYA
+    // ===================================================================
+
     public function generateReport(Request $request, string $appKey)
     {
         try {
-            // 1. Validasi Aplikasi
             if (!isset($this->applications[$appKey])) {
                 return response()->json(['error' => "Aplikasi '{$appKey}' tidak ditemukan."], 404);
             }
             $appConfig = $this->applications[$appKey];
-
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
             $propertyId = env('GA_PROPERTY_ID');
-
-            // 2. Ambil semua parameter dari request
-            $reportType = $request->query('type', 'pages'); // default ke laporan halaman
+            $reportType = $request->query('type', 'pages');
             $dateRangeConfig = $this->getDateRangeFromPeriod_new($request);
-            
-            // 3. Bangun filter berdasarkan request
             $filters = $this->buildAdvancedFilters($request, $appConfig);
-
-            // 4. Definisikan dimensi dan metrik berdasarkan tipe laporan
             switch ($reportType) {
                 case 'pages':
                     $dimensions = ['pageTitle', 'pagePath'];
@@ -102,31 +199,12 @@ class AnalyticsController extends Controller
                 default:
                      return response()->json(['error' => "Tipe laporan '{$reportType}' tidak valid. Gunakan 'pages' atau 'geo'."], 400);
             }
-
-            // 5. Jalankan laporan dengan helper yang mendukung filter
             $reportData = $this->runAdvancedHistoricalReport($analyticsData, $propertyId, $dateRangeConfig, $dimensions, $metrics, $orderBy, $filters);
-            
-            // 6. Format dan kembalikan response
-            return response()->json([
-                'metadata' => [
-                    'application' => $appConfig['name'],
-                    'reportType' => $reportType,
-                    'dateRange' => $dateRangeConfig,
-                    'appliedFilters' => $this->getAppliedFiltersForMetadata($request),
-                ],
-                'totals' => $this->formatTotals_new($reportData['totals'] ?? []),
-                'rows' => $reportData['rows'] ?? [],
-            ]);
-
+            return response()->json(['metadata' => ['application' => $appConfig['name'],'reportType' => $reportType,'dateRange' => $dateRangeConfig,'appliedFilters' => $this->getAppliedFiltersForMetadata($request),],'totals' => $this->formatTotals_new($reportData['totals'] ?? []),'rows' => $reportData['rows'] ?? [],]);
         } catch (Exception $e) {
             return $this->handleApiException("Laporan Fleksibel '{$appKey}'", $e);
         }
     }
-
-
-    // ===================================================================
-    // KODE ASLI ANDA (UTUH, TIDAK DIUBAH)
-    // ===================================================================
 
     public function fetchGeographyReport(Request $request)
     {
@@ -134,73 +212,25 @@ class AnalyticsController extends Controller
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
             $propertyId = env('GA_PROPERTY_ID');
-
             $period = $request->query('period', 'last_7_days');
             $startDate = $request->query('start_date');
             $endDate = $request->query('end_date');
-
             $dateRangeConfig = $this->getDateRangeFromPeriod($period, $startDate, $endDate);
-
             $dimensions = ['country', 'city'];
-            $metrics = [
-                'activeUsers',
-                'newUsers',
-                'sessions',
-                'engagementRate',
-                'conversions',
-                'totalRevenue'
-            ];
-            
-            $reportData = $this->runHistoricalReport(
-                $analyticsData, 
-                $propertyId, 
-                $dateRangeConfig, 
-                $dimensions, 
-                $metrics, 
-                'activeUsers',
-                250
-            );
-
+            $metrics = ['activeUsers', 'newUsers', 'sessions', 'engagementRate', 'conversions', 'totalRevenue'];
+            $reportData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRangeConfig, $dimensions, $metrics, 'activeUsers', 250);
             $formattedRows = [];
             if (!empty($reportData['rows'])) {
                 foreach ($reportData['rows'] as $row) {
-                    $formattedRows[] = [
-                        'country' => $row['country'],
-                        'city' => $row['city'],
-                        'activeUsers' => (int)($row['activeUsers'] ?? 0),
-                        'newUsers' => (int)($row['newUsers'] ?? 0),
-                        'sessions' => (int)($row['sessions'] ?? 0),
-                        'engagementRate' => round((float)($row['engagementRate'] ?? 0) * 100, 2) . '%',
-                        'conversions' => (int)($row['conversions'] ?? 0),
-                        'totalRevenue' => round((float)($row['totalRevenue'] ?? 0), 2),
-                    ];
+                    $formattedRows[] = ['country' => $row['country'], 'city' => $row['city'],'activeUsers' => (int)($row['activeUsers'] ?? 0), 'newUsers' => (int)($row['newUsers'] ?? 0),'sessions' => (int)($row['sessions'] ?? 0), 'engagementRate' => round((float)($row['engagementRate'] ?? 0) * 100, 2) . '%','conversions' => (int)($row['conversions'] ?? 0), 'totalRevenue' => round((float)($row['totalRevenue'] ?? 0), 2),];
                 }
             }
-            
             $totals = $reportData['totals'] ?? [];
-            $formattedTotals = [
-                'activeUsers' => (int)($totals['activeUsers'] ?? 0),
-                'newUsers' => (int)($totals['newUsers'] ?? 0),
-                'sessions' => (int)($totals['sessions'] ?? 0),
-                'engagementRate' => round((float)($totals['engagementRate'] ?? 0) * 100, 2) . '%',
-                'conversions' => (int)($totals['conversions'] ?? 0),
-                'totalRevenue' => round((float)($totals['totalRevenue'] ?? 0), 2),
-            ];
-
-            return response()->json([
-                'metadata' => [
-                    'period' => $period,
-                    'dateRange' => $dateRangeConfig,
-                ],
-                'totals' => $formattedTotals,
-                'rows' => $formattedRows
-            ]);
-
-        } catch (Exception $e) {
-            return $this->handleApiException('Laporan Geografi', $e);
-        }
+            $formattedTotals = ['activeUsers' => (int)($totals['activeUsers'] ?? 0), 'newUsers' => (int)($totals['newUsers'] ?? 0),'sessions' => (int)($totals['sessions'] ?? 0), 'engagementRate' => round((float)($totals['engagementRate'] ?? 0) * 100, 2) . '%','conversions' => (int)($totals['conversions'] ?? 0), 'totalRevenue' => round((float)($totals['totalRevenue'] ?? 0), 2),];
+            return response()->json(['metadata' => ['period' => $period, 'dateRange' => $dateRangeConfig,], 'totals' => $formattedTotals, 'rows' => $formattedRows]);
+        } catch (Exception $e) { return $this->handleApiException('Laporan Geografi', $e); }
     }
-
+    
     public function fetchPagesReport(Request $request)
     {
         try {
@@ -213,49 +243,21 @@ class AnalyticsController extends Controller
             $dateRangeConfig = $this->getDateRangeFromPeriod($period, $startDate, $endDate);
             $dimensions = ['pageTitle'];
             $metrics = ['activeUsers','screenPageViews','averageSessionDuration','eventCount','conversions','totalRevenue'];
-            
             $reportData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRangeConfig, $dimensions, $metrics, 'screenPageViews', 100);
-
             $formattedRows = [];
             if (!empty($reportData['rows'])) {
                 foreach ($reportData['rows'] as $row) {
-                    $activeUsers = (float)($row['activeUsers'] ?? 0);
-                    $screenPageViews = (float)($row['screenPageViews'] ?? 0);
-                    $formattedRows[] = [
-                        'pageTitle' => $row['pageTitle'],
-                        'activeUsers' => (int)$activeUsers,
-                        'viewsPerUser' => $activeUsers > 0 ? round($screenPageViews / $activeUsers, 2) : 0,
-                        'averageSessionDurationFormatted' => $this->formatDuration((float)($row['averageSessionDuration'] ?? 0)),
-                        'eventCount' => (int)($row['eventCount'] ?? 0),
-                        'conversions' => (int)($row['conversions'] ?? 0),
-                        'totalRevenue' => round((float)($row['totalRevenue'] ?? 0), 2),
-                    ];
+                    $activeUsers = (float)($row['activeUsers'] ?? 0); $screenPageViews = (float)($row['screenPageViews'] ?? 0);
+                    $formattedRows[] = ['pageTitle' => $row['pageTitle'], 'activeUsers' => (int)$activeUsers,'viewsPerUser' => $activeUsers > 0 ? round($screenPageViews / $activeUsers, 2) : 0,'averageSessionDurationFormatted' => $this->formatDuration((float)($row['averageSessionDuration'] ?? 0)),'eventCount' => (int)($row['eventCount'] ?? 0), 'conversions' => (int)($row['conversions'] ?? 0),'totalRevenue' => round((float)($row['totalRevenue'] ?? 0), 2),];
                 }
             }
-            
             $totals = $reportData['totals'] ?? [];
-            $totalActiveUsers = (float)($totals['activeUsers'] ?? 0);
-            $totalScreenPageViews = (float)($totals['screenPageViews'] ?? 0);
-            $formattedTotals = [
-                'activeUsers' => (int)$totalActiveUsers,
-                'viewsPerUser' => $totalActiveUsers > 0 ? round($totalScreenPageViews / $totalActiveUsers, 2) : 0,
-                'averageSessionDurationFormatted' => $this->formatDuration((float)($totals['averageSessionDuration'] ?? 0)),
-                'eventCount' => (int)($totals['eventCount'] ?? 0),
-                'conversions' => (int)($totals['conversions'] ?? 0),
-                'totalRevenue' => round((float)($totals['totalRevenue'] ?? 0), 2),
-            ];
-
-            return response()->json([
-                'metadata' => ['period' => $period,'dateRange' => $dateRangeConfig],
-                'totals' => $formattedTotals,
-                'rows' => $formattedRows
-            ]);
-
-        } catch (Exception $e) {
-            return $this->handleApiException('Laporan Halaman & Layar', $e);
-        }
+            $totalActiveUsers = (float)($totals['activeUsers'] ?? 0); $totalScreenPageViews = (float)($totals['screenPageViews'] ?? 0);
+            $formattedTotals = ['activeUsers' => (int)$totalActiveUsers,'viewsPerUser' => $totalActiveUsers > 0 ? round($totalScreenPageViews / $totalActiveUsers, 2) : 0,'averageSessionDurationFormatted' => $this->formatDuration((float)($totals['averageSessionDuration'] ?? 0)),'eventCount' => (int)($totals['eventCount'] ?? 0), 'conversions' => (int)($totals['conversions'] ?? 0),'totalRevenue' => round((float)($totals['totalRevenue'] ?? 0), 2),];
+            return response()->json(['metadata' => ['period' => $period,'dateRange' => $dateRangeConfig], 'totals' => $formattedTotals, 'rows' => $formattedRows]);
+        } catch (Exception $e) { return $this->handleApiException('Laporan Halaman & Layar', $e); }
     }
-
+    
     public function fetchRealtimeData()
     {
         try {
@@ -271,7 +273,7 @@ class AnalyticsController extends Controller
             return response()->json(['totalActiveUsers' => (int) $totalActiveUsers, 'reports' => ['byPage' => $usersByPage['rows'] ?? [], 'byLocation' => $usersByLocation['rows'] ?? [], 'byPlatform' => $usersByPlatform['rows'] ?? [], 'byAudience' => $usersByAudience['rows'] ?? [], 'activityFeed'=> $activityFeed['rows'] ?? []]]);
         } catch (Exception $e) { return $this->handleApiException('Realtime', $e); }
     }
-
+    
     public function fetchHistoricalData(Request $request)
     {
         try {
@@ -313,16 +315,18 @@ class AnalyticsController extends Controller
             default: return ['start_date' => '7daysAgo', 'end_date' => 'today'];
         }
     }
-
+    
     private function formatDuration(float $seconds): string
     {
         if ($seconds < 1) { return '0s'; }
-        $s = (int)$seconds; $m = floor($s / 60); $s = $s % 60; $h = floor($m / 60); $m = $m % 60; $d = floor($h / 24); $h = $h % 24;
-        $result = '';
-        if ($d > 0) { $result .= $d . 'h '; } if ($h > 0) { $result .= $h . 'j '; } if ($m > 0) { $result .= $m . 'm '; } if ($s > 0) { $result .= $s . 'd'; }
-        return trim($result) ?: '0d';
+        $seconds = (int)$seconds; $m = floor($seconds / 60); $s = $seconds % 60; $h = floor($m / 60); $m = $m % 60;
+        $parts = [];
+        if ($h > 0) { $parts[] = $h . 'h'; }
+        if ($m > 0) { $parts[] = $m . 'm'; }
+        if ($s > 0 || empty($parts)) { $parts[] = $s . 's'; }
+        return implode(' ', $parts);
     }
-
+    
     private function runRealtimeReportHelper($analyticsData, $propertyId, array $dimensions, array $metrics): array
     {
         $dimensionObjects = array_map(fn($name) => new Dimension(['name' => $name]), $dimensions);
@@ -338,7 +342,7 @@ class AnalyticsController extends Controller
         }
         return $result;
     }
-
+    
     private function runHistoricalReport($analyticsData, $propertyId, array $dateRangeConfig, array $dimensions, array $metrics, ?string $orderByMetric = null, int $limit = 25): array
     {
         $dimensionObjects = array_map(fn($name) => new Dimension(['name' => $name]), $dimensions);
@@ -359,7 +363,7 @@ class AnalyticsController extends Controller
         if ($orderByMetric === null && !empty($result['rows']) && isset($result['rows'][0]['date'])) { usort($result['rows'], fn($a, $b) => $a['date'] <=> $b['date']); }
         return $result;
     }
-
+    
     private function runCohortReport($analyticsData, $propertyId): array
     {
         $today = Carbon::today();
@@ -372,36 +376,24 @@ class AnalyticsController extends Controller
         foreach($retentionTable as $name => $data) { $totalUsers = $data['total_users']; if ($totalUsers === 0) continue; $weeklyRetention = []; foreach($data['users_per_week'] as $week => $users) { $weeklyRetention["Week " . $week] = [ 'users' => $users, 'percentage' => round(($users / $totalUsers) * 100, 2) ]; } $dateRange = collect($cohortSpec->getCohorts())->firstWhere('name', $name)->getDateRange(); $startDate = Carbon::parse($dateRange->getStartDate())->format('d M'); $endDate = Carbon::parse($dateRange->getEndDate())->format('d M'); $formattedOutput[] = [ 'cohort' => "Users from: {$startDate} - {$endDate}", 'total_initial_users' => $totalUsers, 'retention' => $weeklyRetention, ]; }
         return $formattedOutput;
     }
-
+    
     private function handleApiException(string $context, Exception $e): \Illuminate\Http\JsonResponse
     {
         $message = $e->getMessage(); $decoded = json_decode($message, true); if (json_last_error() === JSON_ERROR_NONE && isset($decoded['error']['message'])) { $message = $decoded['error']['message']; }
         Log::error("Google Analytics API Error ({$context}): " . $message, ['trace' => $e->getTraceAsString()]);
         return response()->json(['error' => "Gagal mengambil data {$context}: " . $message], 500);
     }
-
-    // --- PENAMBAHAN HELPER BARU DI BAGIAN PALING BAWAH ---
-
+    
     private function runAdvancedHistoricalReport($analyticsData, $propertyId, array $dateRangeConfig, array $dimensions, array $metrics, ?string $orderByMetric, ?array $filters, int $limit = 250): array
     {
-        $request = new RunReportRequest([
-            'dateRanges' => [new GoogleDateRange($dateRangeConfig)],
-            'dimensions' => array_map(fn($name) => new Dimension(['name' => $name]), $dimensions),
-            'metrics' => array_map(fn($name) => new Metric(['name' => $name]), $metrics),
-            'limit' => $limit,
-            'metricAggregations' => ['TOTAL'],
-        ]);
-        if ($filters) {
-            $request->setDimensionFilter(new FilterExpression(['and_group' => new \Google\Service\AnalyticsData\FilterExpressionList(['expressions' => $filters])]));
-        }
-        if ($orderByMetric) {
-            $request->setOrderBys([new OrderBy(['metric' => new MetricOrderBy(['metric_name' => $orderByMetric]), 'desc' => true])]);
-        }
+        $request = new RunReportRequest(['dateRanges' => [new GoogleDateRange($dateRangeConfig)],'dimensions' => array_map(fn($name) => new Dimension(['name' => $name]), $dimensions),'metrics' => array_map(fn($name) => new Metric(['name' => $name]), $metrics),'limit' => $limit,'metricAggregations' => ['TOTAL'],]);
+        if ($filters) { $request->setDimensionFilter(new FilterExpression(['and_group' => new \Google\Service\AnalyticsData\FilterExpressionList(['expressions' => $filters])])); }
+        if ($orderByMetric) { $request->setOrderBys([new OrderBy(['metric' => new MetricOrderBy(['metric_name' => $orderByMetric]), 'desc' => true])]); }
         $response = $analyticsData->properties->runReport('properties/' . $propertyId, $request);
         $result = ['rows' => [], 'totals' => []];
         foreach($response->getRows()as $r){$rd=[];foreach($r->getDimensionValues()as $i=>$d){$rd[$dimensions[$i]]=$d->getValue();}foreach($r->getMetricValues()as $i=>$m){$rd[$metrics[$i]]=$m->getValue();}$result['rows'][]=$rd;}if($response->getTotals()&&count($response->getTotals())>0){$t=$response->getTotals()[0];foreach($t->getMetricValues()as $i=>$m){$result['totals'][$metrics[$i]]=$m->getValue();}}return $result;
     }
-
+    
     private function buildAdvancedFilters(Request $request, array $appConfig): array
     {
         $filters = [];
@@ -416,17 +408,17 @@ class AnalyticsController extends Controller
         $period = $request->query('period', 'last_7_days');
         $customStart = $request->query('start_date');
         $customEnd = $request->query('end_date');
+        if (preg_match('/^last_(\d+)_days$/', $period, $matches)) {
+            $days = $matches[1];
+            if ($days > 0) { return ['start_date' => "{$days}daysAgo", 'end_date' => 'today']; }
+        }
         switch ($period) {
             case 'today': return ['start_date' => 'today', 'end_date' => 'today'];
             case 'yesterday': return ['start_date' => 'yesterday', 'end_date' => 'yesterday'];
-            case 'last_7_days': return ['start_date' => '7daysAgo', 'end_date' => 'today'];
-            case 'last_28_days': return ['start_date' => '28daysAgo', 'end_date' => 'today'];
-            case 'last_90_days': return ['start_date' => '90daysAgo', 'end_date' => 'today'];
             case 'custom':
                 if ($customStart && $customEnd) { return ['start_date' => Carbon::parse($customStart)->format('Y-m-d'), 'end_date' => Carbon::parse($customEnd)->format('Y-m-d')]; }
-                return ['start_date' => '7daysAgo', 'end_date' => 'today']; // Fallback
-            default:
                 return ['start_date' => '7daysAgo', 'end_date' => 'today'];
+            default: return ['start_date' => '7daysAgo', 'end_date' => 'today'];
         }
     }
     
@@ -448,5 +440,4 @@ class AnalyticsController extends Controller
         }
         return $f;
     }
-    // --- AKHIR PENAMBAHAN ---
 }

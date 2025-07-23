@@ -258,12 +258,12 @@
             function renderTable(elementId, data, columns, noDataMessage = 'Tidak ada data tersedia.') {
                 const container = document.getElementById(elementId);
                 if (!data || data.length === 0) {
-                    container.innerHTML = `<p class="loading">${noDataMessage}</p>`;
+                    container.innerHTML = <p class="loading">${noDataMessage}</p>;
                     return;
                 }
 
                 let tableHtml = '<table><thead><tr>';
-                columns.forEach(col => tableHtml += `<th>${col.header}</th>`);
+                columns.forEach(col => tableHtml += <th>${col.header}</th>);
                 tableHtml += '</tr></thead><tbody>';
 
                 data.forEach(row => {
@@ -273,7 +273,7 @@
                         if (col.formatter) {
                             value = col.formatter(value);
                         }
-                        tableHtml += `<td title="${value}">${value}</td>`;
+                        tableHtml += <td title="${value}">${value}</td>;
                     });
                     tableHtml += '</tr>';
                 });
@@ -321,7 +321,7 @@
                         ], 'Tidak ada pengguna aktif.');
 
                         renderTable('realtime-locations', data.reports.byLocation, [
-                            { header: 'Lokasi', key: 'city', formatter: (val, row) => `${row.city}, ${row.country}` },
+                            { header: 'Lokasi', key: 'city', formatter: (val, row) => ${row.city}, ${row.country} },
                             { header: 'Pengguna', key: 'activeUsers' }
                         ], 'Tidak ada pengguna aktif.');
                         
@@ -341,12 +341,12 @@
                 // Tampilkan loading state
                 document.getElementById('historical-content').style.opacity = '0.5';
                 
-                fetch(`/api/analytics-data/historical?period=${period}`)
+                fetch(/api/analytics-data/historical?period=${period})
                     .then(response => response.json())
                     .then(data => {
                         if (data.error) {
                             console.error('Historical Error:', data.error);
-                            document.getElementById('historical-content').innerHTML = `<p class="error-message">Gagal memuat data: ${data.error}</p>`;
+                            document.getElementById('historical-content').innerHTML = <p class="error-message">Gagal memuat data: ${data.error}</p>;
                             return;
                         }
                         
@@ -397,7 +397,7 @@
                     })
                     .catch(error => {
                         console.error('Gagal mengambil data historis:', error)
-                        document.getElementById('historical-content').innerHTML = `<p class="error-message">Terjadi kesalahan jaringan.</p>`;
+                        document.getElementById('historical-content').innerHTML = <p class="error-message">Terjadi kesalahan jaringan.</p>;
                     })
                     .finally(() => {
                         document.getElementById('historical-content').style.opacity = '1';
@@ -449,18 +449,18 @@
             function renderCohortTable(data) {
                 const container = document.getElementById('cohort-table');
                  if (!data || data.length === 0) {
-                    container.innerHTML = `<p class="loading">Tidak ada data retensi tersedia.</p>`;
+                    container.innerHTML = <p class="loading">Tidak ada data retensi tersedia.</p>;
                     return;
                 }
                 
                 let tableHtml = '<table class="cohort-grid"><thead><tr><th>Cohort</th><th>Total Users</th><th>Week 0</th><th>Week 1</th><th>Week 2</th><th>Week 3</th><th>Week 4</th></tr></thead><tbody>';
                 data.forEach(cohort => {
-                    tableHtml += `<tr><td>${cohort.cohort}</td><td>${cohort.total_initial_users.toLocaleString()}</td>`;
+                    tableHtml += <tr><td>${cohort.cohort}</td><td>${cohort.total_initial_users.toLocaleString()}</td>;
                     for(let i = 0; i <= 4; i++) {
-                        const weekData = cohort.retention[`Week ${i}`];
+                        const weekData = cohort.retention[Week ${i}];
                         if (weekData) {
                             const color = getColorForPercentage(weekData.percentage);
-                            tableHtml += `<td><div class="cohort-cell" style="background-color: ${color};">${weekData.percentage}%</div></td>`;
+                            tableHtml += <td><div class="cohort-cell" style="background-color: ${color};">${weekData.percentage}%</div></td>;
                         } else {
                             tableHtml += '<td></td>';
                         }
@@ -490,7 +490,7 @@
             fetchHistoricalData(currentPeriod);
 
             // Set interval for realtime data
-            setInterval(fetchRealtimeData, 30000); 
+            setInterval(fetchRealtimeData, 30000); // Refresh every 30 seconds
         });
     </script>
 </body>

@@ -3,6 +3,5 @@
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return 'Laravel berhasil jalan di Railway! 🎉';
+    return view('analytics_dashboard');
 });
-
