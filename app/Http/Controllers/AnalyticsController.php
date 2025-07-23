@@ -31,7 +31,7 @@ class AnalyticsController extends Controller
     private $applications = [
         'mahasiswa' => [
             'name' => 'Aplikasi Mahasiswa',
-            'page_path_filter' => '/mahasiswa', 
+            'page_path_filter' => '/mahasiswa', // Filter untuk memisahkan data
         ],
         'bytecafe' => [
             'name' => 'Byte Cafe',
@@ -42,7 +42,9 @@ class AnalyticsController extends Controller
             'page_path_filter' => '/daftarbuku',
         ],
         'dataperalatan' => [
+
             'name' => 'Data Peralatan',
+
             'page_path_filter' => '/peralatan', 
 
         ],
@@ -207,9 +209,7 @@ class AnalyticsController extends Controller
         }
     }
 
-    // ===================================================================
-    // FUNGSI LAPORAN DETAIL
-    // ===================================================================
+    // LAPORAN DETAIL
     
     public function generateReport(Request $request, string $appKey)
     {
@@ -274,9 +274,6 @@ class AnalyticsController extends Controller
         }
     }
     
-    // ===================================================================
-    // FUNGSI-FUNGSI LAMA (DIPERTAHANKAN UNTUK KOMPATIBILITAS)
-    // ===================================================================
     
     public function fetchGeographyReport(Request $request)
     {
@@ -412,45 +409,14 @@ class AnalyticsController extends Controller
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
             $propertyId = env('GA_PROPERTY_ID');
-
-            $allAppsRealtimeData = [];
-
-            foreach ($this->applications as $appKey => $appConfig) {
-                
-                $realtimeFilter = new FilterExpression([
-                    'filter' => new Filter([
-                        'field_name' => 'unifiedScreenName',
-                        'string_filter' => new StringFilter(['value' => $appConfig['page_path_filter'], 'match_type' => 'CONTAINS'])
-                    ])
-                ]);
-
-                $usersByPage = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['unifiedScreenName', 'deviceCategory'], ['activeUsers'], $realtimeFilter);
-                $activityFeed = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['minutesAgo', 'unifiedScreenName', 'city'], ['activeUsers'], $realtimeFilter);
-                
-                $usersByLocation = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['city'], ['activeUsers'], $realtimeFilter);
-                $totalActiveUsersForApp = collect($usersByLocation['rows'] ?? [])->sum('activeUsers');
-                
-                $appData = [
-                    'app_key' => $appKey,
-                    'name' => $appConfig['name'],
-                    'totalActiveUsers' => (int) $totalActiveUsersForApp,
-                    'reports' => [
-                        'byPage' => $usersByPage['rows'] ?? [],
-                        'activityFeed' => $activityFeed['rows'] ?? [],
-                        'byLocation' => [], 
-                        'byPlatform' => [],
-                        'byAudience' => [],
-                    ]
-                ];
-                
-                $allAppsRealtimeData[] = $appData;
-            }
-
-            return response()->json(['data' => $allAppsRealtimeData]);
-
-        } catch (Exception $e) {
-            return $this->handleApiException('Realtime Details', $e);
-        }
+            $usersByPage = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['unifiedScreenName', 'deviceCategory'], ['activeUsers']);
+            $usersByLocation = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['country', 'city'], ['activeUsers']);
+            $usersByPlatform = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['platform'], ['activeUsers']);
+            $usersByAudience = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['audienceName'], ['activeUsers']);
+            $activityFeed = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['minutesAgo', 'unifiedScreenName', 'city'], ['activeUsers']);
+            $totalActiveUsers = collect($usersByLocation['rows'] ?? [])->sum('activeUsers');
+            return response()->json(['totalActiveUsers' => (int) $totalActiveUsers, 'reports' => ['byPage' => $usersByPage['rows'] ?? [], 'byLocation' => $usersByLocation['rows'] ?? [], 'byPlatform' => $usersByPlatform['rows'] ?? [], 'byAudience' => $usersByAudience['rows'] ?? [], 'activityFeed'=> $activityFeed['rows'] ?? []]]);
+        } catch (Exception $e) { return $this->handleApiException('Realtime', $e); }
     }
 
     public function fetchHistoricalData(Request $request)
@@ -476,10 +442,8 @@ class AnalyticsController extends Controller
             return response()->json(['summary' => $summary, 'reports' => ['dailyTrends' => $dailyTrendData['rows'] ?? [], 'pages' => $pageData['rows'] ?? [], 'landingPages' => $landingPageData['rows'] ?? [], 'geography' => $geoData['rows'] ?? [], 'trafficSources' => $trafficSourceData['rows'] ?? [], 'conversionEvents' => $conversionEventData['rows'] ?? [], 'technology' => $techData['rows'] ?? [], 'userRetention' => $retentionData ?? []]]);
         } catch (Exception $e) { return $this->handleApiException('Historis', $e); }
     }
-    
-    // ===================================================================
-    // FUNGSI-FUNGSI HELPER
-    // ===================================================================
+
+    // INI HELPER
 
     private function getDateRangeFromPeriod(string $period, ?string $customStart, ?string $customEnd): array
     {
