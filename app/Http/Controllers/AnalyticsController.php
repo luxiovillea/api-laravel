@@ -27,12 +27,11 @@ class AnalyticsController extends Controller
 {
     /**
      * Konfigurasi Aplikasi untuk metode baru yang fleksibel.
-     * ==> PERUBAHAN DI SINI: Saya menambahkan 'dataperalatan'.
      */
     private $applications = [
         'mahasiswa' => [
             'name' => 'Aplikasi Mahasiswa',
-            'page_path_filter' => '/mahasiswa', // Filter untuk memisahkan data
+            'page_path_filter' => '/mahasiswa', 
         ],
         'bytecafe' => [
             'name' => 'Byte Cafe',
@@ -42,11 +41,10 @@ class AnalyticsController extends Controller
             'name' => 'Daftar Buku',
             'page_path_filter' => '/daftarbuku',
         ],
-        // PENAMBAHAN APLIKASI BARU
         'dataperalatan' => [
             'name' => 'Data Peralatan',
-            // PENTING: Sesuaikan path filter ini dengan URL asli Anda, misal '/peralatan' atau '/data-peralatan'
-            'page_path_filter' => '/peralatan',
+            'page_path_filter' => '/peralatan', 
+
         ],
     ];
 
@@ -209,7 +207,9 @@ class AnalyticsController extends Controller
         }
     }
 
-    // LAPORAN DETAIL
+    // ===================================================================
+    // FUNGSI LAPORAN DETAIL
+    // ===================================================================
     
     public function generateReport(Request $request, string $appKey)
     {
@@ -274,6 +274,9 @@ class AnalyticsController extends Controller
         }
     }
     
+    // ===================================================================
+    // FUNGSI-FUNGSI LAMA (DIPERTAHANKAN UNTUK KOMPATIBILITAS)
+    // ===================================================================
     
     public function fetchGeographyReport(Request $request)
     {
@@ -409,47 +412,44 @@ class AnalyticsController extends Controller
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
             $propertyId = env('GA_PROPERTY_ID');
-            
-            $allApplicationsData = [];
+
+            $allAppsRealtimeData = [];
 
             foreach ($this->applications as $appKey => $appConfig) {
-
+                
                 $realtimeFilter = new FilterExpression([
                     'filter' => new Filter([
                         'field_name' => 'unifiedScreenName',
-                        'string_filter' => new StringFilter([
-                            'value' => $appConfig['page_path_filter'], 
-                            'match_type' => 'CONTAINS'
-                        ])
+                        'string_filter' => new StringFilter(['value' => $appConfig['page_path_filter'], 'match_type' => 'CONTAINS'])
                     ])
                 ]);
 
                 $usersByPage = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['unifiedScreenName', 'deviceCategory'], ['activeUsers'], $realtimeFilter);
-                $usersByLocation = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['country', 'city'], ['activeUsers'], $realtimeFilter);
-                $usersByPlatform = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['platform'], ['activeUsers'], $realtimeFilter);
-                $usersByAudience = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['audienceName'], ['activeUsers'], $realtimeFilter);
                 $activityFeed = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['minutesAgo', 'unifiedScreenName', 'city'], ['activeUsers'], $realtimeFilter);
                 
-                $totalActiveUsers = collect($usersByLocation['rows'] ?? [])->sum('activeUsers');
-
-                $allApplicationsData[] = [
+                $usersByLocation = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['city'], ['activeUsers'], $realtimeFilter);
+                $totalActiveUsersForApp = collect($usersByLocation['rows'] ?? [])->sum('activeUsers');
+                
+                $appData = [
                     'app_key' => $appKey,
                     'name' => $appConfig['name'],
-                    'totalActiveUsers' => (int) $totalActiveUsers,
+                    'totalActiveUsers' => (int) $totalActiveUsersForApp,
                     'reports' => [
                         'byPage' => $usersByPage['rows'] ?? [],
-                        'byLocation' => $usersByLocation['rows'] ?? [],
-                        'byPlatform' => $usersByPlatform['rows'] ?? [],
-                        'byAudience' => $usersByAudience['rows'] ?? [],
-                        'activityFeed' => $activityFeed['rows'] ?? []
+                        'activityFeed' => $activityFeed['rows'] ?? [],
+                        'byLocation' => [], 
+                        'byPlatform' => [],
+                        'byAudience' => [],
                     ]
                 ];
+                
+                $allAppsRealtimeData[] = $appData;
             }
 
-            return response()->json(['data' => $allApplicationsData]);
+            return response()->json(['data' => $allAppsRealtimeData]);
 
-        } catch (Exception $e) { 
-            return $this->handleApiException('Realtime', $e); 
+        } catch (Exception $e) {
+            return $this->handleApiException('Realtime Details', $e);
         }
     }
 
@@ -476,8 +476,10 @@ class AnalyticsController extends Controller
             return response()->json(['summary' => $summary, 'reports' => ['dailyTrends' => $dailyTrendData['rows'] ?? [], 'pages' => $pageData['rows'] ?? [], 'landingPages' => $landingPageData['rows'] ?? [], 'geography' => $geoData['rows'] ?? [], 'trafficSources' => $trafficSourceData['rows'] ?? [], 'conversionEvents' => $conversionEventData['rows'] ?? [], 'technology' => $techData['rows'] ?? [], 'userRetention' => $retentionData ?? []]]);
         } catch (Exception $e) { return $this->handleApiException('Historis', $e); }
     }
-
-    // INI HELPER
+    
+    // ===================================================================
+    // FUNGSI-FUNGSI HELPER
+    // ===================================================================
 
     private function getDateRangeFromPeriod(string $period, ?string $customStart, ?string $customEnd): array
     {
