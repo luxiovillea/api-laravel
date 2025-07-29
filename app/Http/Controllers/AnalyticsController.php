@@ -29,25 +29,10 @@ class AnalyticsController extends Controller
      * Konfigurasi Aplikasi untuk metode baru yang fleksibel.
      */
     private $applications = [
-        'mahasiswa' => [
-            'name' => 'Aplikasi Mahasiswa',
-            'page_path_filter' => '/mahasiswa', // Filter untuk memisahkan data
-        ],
-        'bytecafe' => [
-            'name' => 'Byte Cafe',
-            'page_path_filter' => '/bytecafe',
-        ],
-        'daftarbuku' => [
-            'name' => 'Daftar Buku',
-            'page_path_filter' => '/daftarbuku',
-        ],
-        'dataperalatan' => [
-
-            'name' => 'Data Peralatan',
-
-            'page_path_filter' => '/peralatan', 
-
-        ],
+    'lapakami' => [
+        'name' => 'Aplikasi Lapakami',
+        'page_path_filter' => '/',
+    ],
     ];
 
     /**

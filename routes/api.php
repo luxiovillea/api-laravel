@@ -4,7 +4,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AnalyticsController;
 
-Route::get('/analytics/dashboard-summary', [AnalyticsController::class, 'getDashboardSummary']);
 Route::get('/analytics-data', [AnalyticsController::class, 'fetchRealtimeData']);
 Route::get('/analytics-historical', [AnalyticsController::class, 'fetchHistoricalData']);
 Route::get('/analytics/pages-report', [AnalyticsController::class, 'fetchPagesReport']);
