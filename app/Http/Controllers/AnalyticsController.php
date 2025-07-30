@@ -21,7 +21,24 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Controller komprehensif untuk Google Analytics 4 Data API.
+ * @OA\Info(
+ *     title="Google Analytics Data API Wrapper",
+ *     version="1.0.0",
+ *     description="API untuk mengambil dan menyajikan data dari Google Analytics 4 (GA4) Data API. Menyediakan laporan ringkasan, realtime, dan detail historis untuk berbagai aplikasi.",
+ *     @OA\Contact(
+ *         email="support@example.com",
+ *         name="Support Team"
+ *     )
+ * )
+ * @OA\Server(
+ *     url=L5_SWAGGER_CONST_HOST,
+ *     description="API Server"
+ * )
+ * @OA\Schema(
+ *     schema="ErrorResponse",
+ *     type="object",
+ *     @OA\Property(property="error", type="string", example="Gagal mengambil data: Pesan error dari API.")
+ * )
  */
 class AnalyticsController extends Controller
 {
@@ -53,6 +70,105 @@ class AnalyticsController extends Controller
     // ===================================================================
     // FUNGSI UTAMA 1: DASHBOARD SUMMARY (LAPORAN STANDAR/HISTORIS)
     // ===================================================================
+
+    /**
+     * @OA\Get(
+     *     path="/analytics/dashboard-summary",
+     *     summary="Ringkasan Dashboard Utama",
+     *     description="Menghasilkan ringkasan data komprehensif untuk semua aplikasi yang terdaftar dalam satu periode waktu.",
+     *     operationId="getDashboardSummary",
+     *     tags={"Dashboard"},
+     *     @OA\Parameter(
+     *         name="period",
+     *         in="query",
+     *         description="Periode waktu untuk laporan. Contoh: 'last_7_days', 'last_30_days', 'custom'.",
+     *         required=false,
+     *         @OA\Schema(type="string", default="last_7_days")
+     *     ),
+     *     @OA\Parameter(
+     *         name="start_date",
+     *         in="query",
+     *         description="Tanggal mulai (Y-m-d) jika periode 'custom'.",
+     *         required=false,
+     *         @OA\Schema(type="string", format="date")
+     *     ),
+     *     @OA\Parameter(
+     *         name="end_date",
+     *         in="query",
+     *         description="Tanggal akhir (Y-m-d) jika periode 'custom'.",
+     *         required=false,
+     *         @OA\Schema(type="string", format="date")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Sukses mendapatkan data ringkasan.",
+     *         @OA\JsonContent(
+     *             type="object",
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(
+     *                      property="applications",
+     *                      type="array",
+     *                      @OA\Items(
+     *                          type="object",
+     *                          @OA\Property(property="id", type="integer", example=1),
+     *                          @OA\Property(property="app_key", type="string", example="lapakami"),
+     *                          @OA\Property(property="name", type="string", example="Aplikasi Lapakami"),
+     *                          @OA\Property(property="key_metrics", type="object",
+     *                              @OA\Property(property="total_visitor", type="integer", example=1500),
+     *                              @OA\Property(property="active_user", type="integer", example=1200),
+     *                              @OA\Property(property="new_user", type="integer", example=300),
+     *                              @OA\Property(property="page_views", type="integer", example=5000)
+     *                          ),
+     *                          @OA\Property(property="engagement", type="object",
+     *                              @OA\Property(property="engagement_rate", type="string", example="65.50%"),
+     *                              @OA\Property(property="average_session_duration", type="string", example="2m 30s")
+     *                          ),
+     *                          @OA\Property(property="top_sources", type="object",
+     *                              @OA\Property(property="geography", type="object",
+     *                                  @OA\Property(property="city", type="string", example="Jakarta"),
+     *                                  @OA\Property(property="country", type="string", example="Indonesia")
+     *                              ),
+     *                              @OA\Property(property="traffic_channel", type="string", example="google / organic")
+     *                          ),
+     *                          @OA\Property(property="business", type="object",
+     *                              @OA\Property(property="conversions", type="integer", example=50)
+     *                          ),
+     *                          @OA\Property(property="technology_overview", type="array", @OA\Items(
+     *                              type="object",
+     *                              @OA\Property(property="deviceCategory", type="string", example="desktop"),
+     *                              @OA\Property(property="browser", type="string", example="Chrome"),
+     *                              @OA\Property(property="operatingSystem", type="string", example="Windows"),
+     *                              @OA\Property(property="sessions", type="integer", example=1000),
+     *                              @OA\Property(property="activeUsers", type="integer", example=800)
+     *                          ))
+     *                      )
+     *                 ),
+     *                 @OA\Property(property="meta", type="object",
+     *                      @OA\Property(property="total", type="integer", example=1),
+     *                      @OA\Property(property="page", type="integer", example=1),
+     *                      @OA\Property(property="limit", type="integer", example=1)
+     *                 )
+     *             ),
+     *             @OA\Property(
+     *                  property="metadata",
+     *                  type="object",
+     *                  @OA\Property(property="period", type="string", example="last_7_days"),
+     *                  @OA\Property(property="dateRange", type="object",
+     *                      @OA\Property(property="start_date", type="string", example="7daysAgo"),
+     *                      @OA\Property(property="end_date", type="string", example="today")
+     *                  )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Terjadi kesalahan pada server atau API Google.",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
+     */
     public function getDashboardSummary(Request $request)
     {
         try {
@@ -156,8 +272,35 @@ class AnalyticsController extends Controller
     // ===================================================================
 
     /**
-     * Mengambil data realtime (pengguna aktif saat ini) untuk setiap aplikasi.
-     * Dipanggil oleh route: /analytics/realtime-summary
+     * @OA\Get(
+     *     path="/analytics/realtime-summary",
+     *     summary="Ringkasan Realtime per Aplikasi",
+     *     description="Mengambil data jumlah pengguna aktif saat ini (realtime) untuk setiap aplikasi yang terdaftar.",
+     *     operationId="getRealtimeSummary",
+     *     tags={"Dashboard", "Realtime"},
+     *     @OA\Response(
+     *         response=200,
+     *         description="Sukses mendapatkan data realtime.",
+     *         @OA\JsonContent(
+     *             type="object",
+     *             @OA\Property(
+     *                  property="data",
+     *                  type="array",
+     *                  @OA\Items(
+     *                      type="object",
+     *                      @OA\Property(property="app_key", type="string", example="lapakami"),
+     *                      @OA\Property(property="name", type="string", example="Aplikasi Lapakami"),
+     *                      @OA\Property(property="active_users_now", type="integer", example=15)
+     *                  )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Terjadi kesalahan pada server atau API Google.",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
      */
     public function getRealtimeSummary()
     {
@@ -196,6 +339,89 @@ class AnalyticsController extends Controller
 
     // LAPORAN DETAIL
     
+    /**
+     * @OA\Get(
+     *     path="/analytics/{appKey}/report",
+     *     summary="Laporan Detail per Aplikasi",
+     *     description="Menghasilkan laporan detail (seperti halaman populer atau geografi) untuk aplikasi tertentu dengan filter opsional.",
+     *     operationId="generateReport",
+     *     tags={"Detail Reports"},
+     *     @OA\Parameter(
+     *         name="appKey",
+     *         in="path",
+     *         description="Kunci unik aplikasi (contoh: 'lapakami').",
+     *         required=true,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Parameter(
+     *         name="type",
+     *         in="query",
+     *         description="Jenis laporan yang diminta.",
+     *         required=true,
+     *         @OA\Schema(type="string", enum={"pages", "geo"})
+     *     ),
+     *     @OA\Parameter(
+     *         name="period",
+     *         in="query",
+     *         description="Periode waktu untuk laporan.",
+     *         required=false,
+     *         @OA\Schema(type="string", default="last_7_days")
+     *     ),
+     *     @OA\Parameter(
+     *         name="start_date",
+     *         in="query",
+     *         description="Tanggal mulai (Y-m-d) jika periode 'custom'.",
+     *         required=false,
+     *         @OA\Schema(type="string", format="date")
+     *     ),
+     *      @OA\Parameter(
+     *         name="end_date",
+     *         in="query",
+     *         description="Tanggal akhir (Y-m-d) jika periode 'custom'.",
+     *         required=false,
+     *         @OA\Schema(type="string", format="date")
+     *     ),
+     *      @OA\Parameter(
+     *         name="pageTitle",
+     *         in="query",
+     *         description="Filter berdasarkan judul halaman (contains).",
+     *         required=false,
+     *         @OA\Schema(type="string")
+     *     ),
+     *      @OA\Parameter(
+     *         name="country",
+     *         in="query",
+     *         description="Filter berdasarkan nama negara (contains).",
+     *         required=false,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Laporan berhasil dibuat.",
+     *         @OA\JsonContent(
+     *             type="object",
+     *             @OA\Property(property="metadata", type="object"),
+     *             @OA\Property(property="totals", type="object", description="Total metrik untuk laporan."),
+     *             @OA\Property(property="rows", type="array", @OA\Items(type="object"), description="Baris data laporan.")
+     *         )
+     *     ),
+     *      @OA\Response(
+     *         response=400,
+     *         description="Bad Request, contoh: tipe laporan tidak valid.",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     ),
+     *      @OA\Response(
+     *         response=404,
+     *         description="Not Found, contoh: appKey tidak ditemukan.",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Terjadi kesalahan pada server atau API Google.",
+     *         @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *     )
+     * )
+     */
     public function generateReport(Request $request, string $appKey)
     {
         try {
@@ -260,6 +486,34 @@ class AnalyticsController extends Controller
     }
     
     
+    /**
+     * @OA\Get(
+     *     path="/analytics/geography-report",
+     *     summary="Laporan Geografi",
+     *     description="Menghasilkan laporan demografi pengguna berdasarkan negara dan kota.",
+     *     operationId="fetchGeographyReport",
+     *     tags={"Legacy Reports"},
+     *     @OA\Parameter(
+     *         name="period", in="query", description="Periode waktu laporan.", required=false, @OA\Schema(type="string", default="last_7_days")
+     *     ),
+     *     @OA\Parameter(
+     *         name="start_date", in="query", description="Tanggal mulai (Y-m-d) jika 'custom'.", required=false, @OA\Schema(type="string", format="date")
+     *     ),
+     *     @OA\Parameter(
+     *         name="end_date", in="query", description="Tanggal akhir (Y-m-d) jika 'custom'.", required=false, @OA\Schema(type="string", format="date")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Sukses mendapatkan laporan geografi.",
+     *         @OA\JsonContent(type="object",
+     *              @OA\Property(property="metadata", type="object"),
+     *              @OA\Property(property="totals", type="object"),
+     *              @OA\Property(property="rows", type="array", @OA\Items(type="object"))
+     *         )
+     *     ),
+     *     @OA\Response(response=500, description="Error", @OA\JsonContent(ref="#/components/schemas/ErrorResponse"))
+     * )
+     */
     public function fetchGeographyReport(Request $request)
     {
         try {
@@ -333,6 +587,34 @@ class AnalyticsController extends Controller
         }
     }
 
+    /**
+     * @OA\Get(
+     *     path="/analytics/pages-report",
+     *     summary="Laporan Halaman & Layar",
+     *     description="Menghasilkan laporan halaman yang paling banyak dilihat pengguna.",
+     *     operationId="fetchPagesReport",
+     *     tags={"Legacy Reports"},
+     *     @OA\Parameter(
+     *         name="period", in="query", description="Periode waktu laporan.", required=false, @OA\Schema(type="string", default="last_7_days")
+     *     ),
+     *     @OA\Parameter(
+     *         name="start_date", in="query", description="Tanggal mulai (Y-m-d) jika 'custom'.", required=false, @OA\Schema(type="string", format="date")
+     *     ),
+     *     @OA\Parameter(
+     *         name="end_date", in="query", description="Tanggal akhir (Y-m-d) jika 'custom'.", required=false, @OA\Schema(type="string", format="date")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Sukses mendapatkan laporan halaman.",
+     *         @OA\JsonContent(type="object",
+     *              @OA\Property(property="metadata", type="object"),
+     *              @OA\Property(property="totals", type="object"),
+     *              @OA\Property(property="rows", type="array", @OA\Items(type="object"))
+     *         )
+     *     ),
+     *     @OA\Response(response=500, description="Error", @OA\JsonContent(ref="#/components/schemas/ErrorResponse"))
+     * )
+     */
     public function fetchPagesReport(Request $request)
     {
         try {
@@ -388,6 +670,30 @@ class AnalyticsController extends Controller
         }
     }
 
+    /**
+     * @OA\Get(
+     *     path="/analytics-data",
+     *     summary="Data Realtime Detail",
+     *     description="Menyediakan data realtime yang terperinci, termasuk pengguna berdasarkan halaman, lokasi, platform, dan feed aktivitas.",
+     *     operationId="fetchRealtimeData",
+     *     tags={"Legacy Reports", "Realtime"},
+     *     @OA\Response(
+     *         response=200,
+     *         description="Sukses mendapatkan data realtime detail.",
+     *         @OA\JsonContent(type="object",
+     *              @OA\Property(property="totalActiveUsers", type="integer"),
+     *              @OA\Property(property="reports", type="object",
+     *                  @OA\Property(property="byPage", type="array", @OA\Items(type="object")),
+     *                  @OA\Property(property="byLocation", type="array", @OA\Items(type="object")),
+     *                  @OA\Property(property="byPlatform", type="array", @OA\Items(type="object")),
+     *                  @OA\Property(property="byAudience", type="array", @OA\Items(type="object")),
+     *                  @OA\Property(property="activityFeed", type="array", @OA\Items(type="object")),
+     *              )
+     *         )
+     *     ),
+     *     @OA\Response(response=500, description="Error", @OA\JsonContent(ref="#/components/schemas/ErrorResponse"))
+     * )
+     */
     public function fetchRealtimeData()
     {
         try {
@@ -404,6 +710,31 @@ class AnalyticsController extends Controller
         } catch (Exception $e) { return $this->handleApiException('Realtime', $e); }
     }
 
+    /**
+     * @OA\Get(
+     *     path="/analytics-historical",
+     *     summary="Data Historis Komprehensif",
+     *     description="Menyediakan berbagai macam laporan historis dalam satu panggilan, termasuk tren harian, halaman, geografi, sumber trafik, teknologi, dan retensi.",
+     *     operationId="fetchHistoricalData",
+     *     tags={"Legacy Reports"},
+     *     @OA\Parameter(
+     *         name="period",
+     *         in="query",
+     *         description="Periode waktu untuk laporan.",
+     *         required=false,
+     *         @OA\Schema(type="string", enum={"7days", "28days", "90days"}, default="28days")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Sukses mendapatkan data historis.",
+     *         @OA\JsonContent(type="object",
+     *              @OA\Property(property="summary", type="object"),
+     *              @OA\Property(property="reports", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(response=500, description="Error", @OA\JsonContent(ref="#/components/schemas/ErrorResponse"))
+     * )
+     */
     public function fetchHistoricalData(Request $request)
     {
         try {
@@ -576,3 +907,11 @@ class AnalyticsController extends Controller
         return $f;
     }
 }
+
+
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AnalyticsController;
+
