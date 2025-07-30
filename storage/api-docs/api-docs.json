@@ -1,0 +1,755 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Google Analytics Data API Wrapper",
+        "description": "API untuk mengambil dan menyajikan data dari Google Analytics 4 (GA4) Data API. Menyediakan laporan ringkasan, realtime, dan detail historis untuk berbagai aplikasi.",
+        "contact": {
+            "name": "Support Team",
+            "email": "support@example.com"
+        },
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://my-default-host.com",
+            "description": "API Server"
+        }
+    ],
+    "paths": {
+        "/analytics/dashboard-summary": {
+            "get": {
+                "tags": [
+                    "Dashboard"
+                ],
+                "summary": "Ringkasan Dashboard Utama",
+                "description": "Menghasilkan ringkasan data komprehensif untuk semua aplikasi yang terdaftar dalam satu periode waktu.",
+                "operationId": "getDashboardSummary",
+                "parameters": [
+                    {
+                        "name": "period",
+                        "in": "query",
+                        "description": "Periode waktu untuk laporan. Contoh: 'last_7_days', 'last_30_days', 'custom'.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "last_7_days"
+                        }
+                    },
+                    {
+                        "name": "start_date",
+                        "in": "query",
+                        "description": "Tanggal mulai (Y-m-d) jika periode 'custom'.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "end_date",
+                        "in": "query",
+                        "description": "Tanggal akhir (Y-m-d) jika periode 'custom'.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sukses mendapatkan data ringkasan.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "applications": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "app_key": {
+                                                                "type": "string",
+                                                                "example": "lapakami"
+                                                            },
+                                                            "name": {
+                                                                "type": "string",
+                                                                "example": "Aplikasi Lapakami"
+                                                            },
+                                                            "key_metrics": {
+                                                                "properties": {
+                                                                    "total_visitor": {
+                                                                        "type": "integer",
+                                                                        "example": 1500
+                                                                    },
+                                                                    "active_user": {
+                                                                        "type": "integer",
+                                                                        "example": 1200
+                                                                    },
+                                                                    "new_user": {
+                                                                        "type": "integer",
+                                                                        "example": 300
+                                                                    },
+                                                                    "page_views": {
+                                                                        "type": "integer",
+                                                                        "example": 5000
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            },
+                                                            "engagement": {
+                                                                "properties": {
+                                                                    "engagement_rate": {
+                                                                        "type": "string",
+                                                                        "example": "65.50%"
+                                                                    },
+                                                                    "average_session_duration": {
+                                                                        "type": "string",
+                                                                        "example": "2m 30s"
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            },
+                                                            "top_sources": {
+                                                                "properties": {
+                                                                    "geography": {
+                                                                        "properties": {
+                                                                            "city": {
+                                                                                "type": "string",
+                                                                                "example": "Jakarta"
+                                                                            },
+                                                                            "country": {
+                                                                                "type": "string",
+                                                                                "example": "Indonesia"
+                                                                            }
+                                                                        },
+                                                                        "type": "object"
+                                                                    },
+                                                                    "traffic_channel": {
+                                                                        "type": "string",
+                                                                        "example": "google / organic"
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            },
+                                                            "business": {
+                                                                "properties": {
+                                                                    "conversions": {
+                                                                        "type": "integer",
+                                                                        "example": 50
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            },
+                                                            "technology_overview": {
+                                                                "type": "array",
+                                                                "items": {
+                                                                    "properties": {
+                                                                        "deviceCategory": {
+                                                                            "type": "string",
+                                                                            "example": "desktop"
+                                                                        },
+                                                                        "browser": {
+                                                                            "type": "string",
+                                                                            "example": "Chrome"
+                                                                        },
+                                                                        "operatingSystem": {
+                                                                            "type": "string",
+                                                                            "example": "Windows"
+                                                                        },
+                                                                        "sessions": {
+                                                                            "type": "integer",
+                                                                            "example": 1000
+                                                                        },
+                                                                        "activeUsers": {
+                                                                            "type": "integer",
+                                                                            "example": 800
+                                                                        }
+                                                                    },
+                                                                    "type": "object"
+                                                                }
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "meta": {
+                                                    "properties": {
+                                                        "total": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        },
+                                                        "page": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        },
+                                                        "limit": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "metadata": {
+                                            "properties": {
+                                                "period": {
+                                                    "type": "string",
+                                                    "example": "last_7_days"
+                                                },
+                                                "dateRange": {
+                                                    "properties": {
+                                                        "start_date": {
+                                                            "type": "string",
+                                                            "example": "7daysAgo"
+                                                        },
+                                                        "end_date": {
+                                                            "type": "string",
+                                                            "example": "today"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Terjadi kesalahan pada server atau API Google.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/analytics/realtime-summary": {
+            "get": {
+                "tags": [
+                    "Dashboard",
+                    "Realtime"
+                ],
+                "summary": "Ringkasan Realtime per Aplikasi",
+                "description": "Mengambil data jumlah pengguna aktif saat ini (realtime) untuk setiap aplikasi yang terdaftar.",
+                "operationId": "getRealtimeSummary",
+                "responses": {
+                    "200": {
+                        "description": "Sukses mendapatkan data realtime.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "app_key": {
+                                                        "type": "string",
+                                                        "example": "lapakami"
+                                                    },
+                                                    "name": {
+                                                        "type": "string",
+                                                        "example": "Aplikasi Lapakami"
+                                                    },
+                                                    "active_users_now": {
+                                                        "type": "integer",
+                                                        "example": 15
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Terjadi kesalahan pada server atau API Google.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/analytics/{appKey}/report": {
+            "get": {
+                "tags": [
+                    "Detail Reports"
+                ],
+                "summary": "Laporan Detail per Aplikasi",
+                "description": "Menghasilkan laporan detail (seperti halaman populer atau geografi) untuk aplikasi tertentu dengan filter opsional.",
+                "operationId": "generateReport",
+                "parameters": [
+                    {
+                        "name": "appKey",
+                        "in": "path",
+                        "description": "Kunci unik aplikasi (contoh: 'lapakami').",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "description": "Jenis laporan yang diminta.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pages",
+                                "geo"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "period",
+                        "in": "query",
+                        "description": "Periode waktu untuk laporan.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "last_7_days"
+                        }
+                    },
+                    {
+                        "name": "start_date",
+                        "in": "query",
+                        "description": "Tanggal mulai (Y-m-d) jika periode 'custom'.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "end_date",
+                        "in": "query",
+                        "description": "Tanggal akhir (Y-m-d) jika periode 'custom'.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "pageTitle",
+                        "in": "query",
+                        "description": "Filter berdasarkan judul halaman (contains).",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "country",
+                        "in": "query",
+                        "description": "Filter berdasarkan nama negara (contains).",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Laporan berhasil dibuat.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "metadata": {
+                                            "type": "object"
+                                        },
+                                        "totals": {
+                                            "description": "Total metrik untuk laporan.",
+                                            "type": "object"
+                                        },
+                                        "rows": {
+                                            "description": "Baris data laporan.",
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, contoh: tipe laporan tidak valid.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found, contoh: appKey tidak ditemukan.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Terjadi kesalahan pada server atau API Google.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/analytics/geography-report": {
+            "get": {
+                "tags": [
+                    "Legacy Reports"
+                ],
+                "summary": "Laporan Geografi",
+                "description": "Menghasilkan laporan demografi pengguna berdasarkan negara dan kota.",
+                "operationId": "fetchGeographyReport",
+                "parameters": [
+                    {
+                        "name": "period",
+                        "in": "query",
+                        "description": "Periode waktu laporan.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "last_7_days"
+                        }
+                    },
+                    {
+                        "name": "start_date",
+                        "in": "query",
+                        "description": "Tanggal mulai (Y-m-d) jika 'custom'.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "end_date",
+                        "in": "query",
+                        "description": "Tanggal akhir (Y-m-d) jika 'custom'.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sukses mendapatkan laporan geografi.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "metadata": {
+                                            "type": "object"
+                                        },
+                                        "totals": {
+                                            "type": "object"
+                                        },
+                                        "rows": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/analytics/pages-report": {
+            "get": {
+                "tags": [
+                    "Legacy Reports"
+                ],
+                "summary": "Laporan Halaman & Layar",
+                "description": "Menghasilkan laporan halaman yang paling banyak dilihat pengguna.",
+                "operationId": "fetchPagesReport",
+                "parameters": [
+                    {
+                        "name": "period",
+                        "in": "query",
+                        "description": "Periode waktu laporan.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "last_7_days"
+                        }
+                    },
+                    {
+                        "name": "start_date",
+                        "in": "query",
+                        "description": "Tanggal mulai (Y-m-d) jika 'custom'.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "end_date",
+                        "in": "query",
+                        "description": "Tanggal akhir (Y-m-d) jika 'custom'.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sukses mendapatkan laporan halaman.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "metadata": {
+                                            "type": "object"
+                                        },
+                                        "totals": {
+                                            "type": "object"
+                                        },
+                                        "rows": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/analytics-data": {
+            "get": {
+                "tags": [
+                    "Legacy Reports",
+                    "Realtime"
+                ],
+                "summary": "Data Realtime Detail",
+                "description": "Menyediakan data realtime yang terperinci, termasuk pengguna berdasarkan halaman, lokasi, platform, dan feed aktivitas.",
+                "operationId": "fetchRealtimeData",
+                "responses": {
+                    "200": {
+                        "description": "Sukses mendapatkan data realtime detail.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "totalActiveUsers": {
+                                            "type": "integer"
+                                        },
+                                        "reports": {
+                                            "properties": {
+                                                "byPage": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "byLocation": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "byPlatform": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "byAudience": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "activityFeed": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/analytics-historical": {
+            "get": {
+                "tags": [
+                    "Legacy Reports"
+                ],
+                "summary": "Data Historis Komprehensif",
+                "description": "Menyediakan berbagai macam laporan historis dalam satu panggilan, termasuk tren harian, halaman, geografi, sumber trafik, teknologi, dan retensi.",
+                "operationId": "fetchHistoricalData",
+                "parameters": [
+                    {
+                        "name": "period",
+                        "in": "query",
+                        "description": "Periode waktu untuk laporan.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "28days",
+                            "enum": [
+                                "7days",
+                                "28days",
+                                "90days"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sukses mendapatkan data historis.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "summary": {
+                                            "type": "object"
+                                        },
+                                        "reports": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ErrorResponse": {
+                "properties": {
+                    "error": {
+                        "type": "string",
+                        "example": "Gagal mengambil data: Pesan error dari API."
+                    }
+                },
+                "type": "object"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Dashboard",
+            "description": "Dashboard"
+        },
+        {
+            "name": "Realtime",
+            "description": "Realtime"
+        },
+        {
+            "name": "Detail Reports",
+            "description": "Detail Reports"
+        },
+        {
+            "name": "Legacy Reports",
+            "description": "Legacy Reports"
+        }
+    ]
+}
