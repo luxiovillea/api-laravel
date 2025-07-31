@@ -38,7 +38,7 @@ return [
                  * Absolute paths to directory containing the swagger definitions.
                 */
                 'annotations' => [
-                    base_path('app'),
+                    base_path('app/Http/Controllers'), // <-- PERBAIKANNYA DI SINI
                 ],
             ],
         ],
