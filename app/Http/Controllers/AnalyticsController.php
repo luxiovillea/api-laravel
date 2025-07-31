@@ -31,7 +31,7 @@ use Illuminate\Support\Facades\Log;
  *     )
  * )
  * @OA\Server(
- *     url=L5_SWAGGER_CONST_HOST,
+ *     url=env("APP_URL"),  // <-- INI PERUBAHAN PENTING: Menggunakan URL dinamis dari .env
  *     description="API Server"
  * )
  * @OA\Schema(
@@ -73,7 +73,7 @@ class AnalyticsController extends Controller
 
     /**
      * @OA\Get(
-     *     path="/analytics/dashboard-summary",
+     *     path="/api/analytics/dashboard-summary",
      *     summary="Ringkasan Dashboard Utama",
      *     description="Menghasilkan ringkasan data komprehensif untuk semua aplikasi yang terdaftar dalam satu periode waktu.",
      *     operationId="getDashboardSummary",
@@ -273,7 +273,7 @@ class AnalyticsController extends Controller
 
     /**
      * @OA\Get(
-     *     path="/analytics/realtime-summary",
+     *     path="/api/analytics/realtime-summary",
      *     summary="Ringkasan Realtime per Aplikasi",
      *     description="Mengambil data jumlah pengguna aktif saat ini (realtime) untuk setiap aplikasi yang terdaftar.",
      *     operationId="getRealtimeSummary",
@@ -341,7 +341,7 @@ class AnalyticsController extends Controller
     
     /**
      * @OA\Get(
-     *     path="/analytics/{appKey}/report",
+     *     path="/api/analytics/{appKey}/report",
      *     summary="Laporan Detail per Aplikasi",
      *     description="Menghasilkan laporan detail (seperti halaman populer atau geografi) untuk aplikasi tertentu dengan filter opsional.",
      *     operationId="generateReport",
@@ -402,7 +402,7 @@ class AnalyticsController extends Controller
      *             type="object",
      *             @OA\Property(property="metadata", type="object"),
      *             @OA\Property(property="totals", type="object", description="Total metrik untuk laporan."),
-     *             @OA\Property(property="rows", type="array", @OA\Items(type="object"), description="Baris data laporan.")
+     *             @Oa\Property(property="rows", type="array", @OA\Items(type="object"), description="Baris data laporan.")
      *         )
      *     ),
      *      @OA\Response(
@@ -488,7 +488,7 @@ class AnalyticsController extends Controller
     
     /**
      * @OA\Get(
-     *     path="/analytics/geography-report",
+     *     path="/api/analytics/geography-report",
      *     summary="Laporan Geografi",
      *     description="Menghasilkan laporan demografi pengguna berdasarkan negara dan kota.",
      *     operationId="fetchGeographyReport",
@@ -589,7 +589,7 @@ class AnalyticsController extends Controller
 
     /**
      * @OA\Get(
-     *     path="/analytics/pages-report",
+     *     path="/api/analytics/pages-report",
      *     summary="Laporan Halaman & Layar",
      *     description="Menghasilkan laporan halaman yang paling banyak dilihat pengguna.",
      *     operationId="fetchPagesReport",
@@ -672,7 +672,7 @@ class AnalyticsController extends Controller
 
     /**
      * @OA\Get(
-     *     path="/analytics-data",
+     *     path="/api/analytics-data",
      *     summary="Data Realtime Detail",
      *     description="Menyediakan data realtime yang terperinci, termasuk pengguna berdasarkan halaman, lokasi, platform, dan feed aktivitas.",
      *     operationId="fetchRealtimeData",
@@ -712,7 +712,7 @@ class AnalyticsController extends Controller
 
     /**
      * @OA\Get(
-     *     path="/analytics-historical",
+     *     path="/api/analytics-historical",
      *     summary="Data Historis Komprehensif",
      *     description="Menyediakan berbagai macam laporan historis dalam satu panggilan, termasuk tren harian, halaman, geografi, sumber trafik, teknologi, dan retensi.",
      *     operationId="fetchHistoricalData",
@@ -907,4 +907,3 @@ class AnalyticsController extends Controller
         return $f;
     }
 }
-
