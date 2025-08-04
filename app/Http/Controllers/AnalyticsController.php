@@ -19,12 +19,13 @@ use Google\Service\AnalyticsData\StringFilter;
 use Exception;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
+use App\Models\Aplikasi; // Import model Aplikasi
 
 /**
  * @OA\Info(
- *     title="Google Analytics Data API Wrapper",
- *     version="1.0.0",
- *     description="API untuk mengambil dan menyajikan data dari Google Analytics 4 (GA4) Data API. Menyediakan laporan ringkasan, realtime, dan detail historis untuk berbagai aplikasi.",
+ *     title="Google Analytics Data API Wrapper - Dynamic Applications",
+ *     version="2.0.0",
+ *     description="API untuk mengambil dan menyajikan data dari Google Analytics 4 (GA4) Data API. Mendukung multiple aplikasi yang dikonfigurasi secara dinamis melalui database.",
  *     @OA\Contact(
  *         email="support@example.com",
  *         name="Support Team"
@@ -47,14 +48,47 @@ use Illuminate\Support\Facades\Log;
 class AnalyticsController extends Controller
 {
     /**
-     * Konfigurasi Aplikasi untuk metode baru yang fleksibel.
+     * Mendapatkan konfigurasi aplikasi dari database
      */
-    private $applications = [
-    'lapakami' => [
-        'name' => 'Aplikasi Lapakami',
-        'page_path_filter' => '/',
-    ],
-    ];
+    private function getApplicationsFromDatabase(): array
+    {
+        $applications = [];
+        $aplikasiList = Aplikasi::active()->get();
+        
+        foreach ($aplikasiList as $aplikasi) {
+            $applications[$aplikasi->key_aplikasi] = [
+                'id' => $aplikasi->id,
+                'name' => $aplikasi->nama_aplikasi,
+                'page_path_filter' => $aplikasi->page_path_filter,
+                'property_id' => $aplikasi->property_id,
+                'additional_config' => $aplikasi->konfigurasi_tambahan ?? [],
+            ];
+        }
+        
+        return $applications;
+    }
+
+    /**
+     * Mendapatkan konfigurasi aplikasi spesifik berdasarkan key
+     */
+    private function getApplicationByKey(string $appKey): ?array
+    {
+        $aplikasi = Aplikasi::where('key_aplikasi', $appKey)->active()->first();
+        
+        if (!$aplikasi) {
+            return null;
+        }
+        
+        return [
+            'id' => $aplikasi->id,
+            'name' => $aplikasi->nama_aplikasi,
+            'page_path_filter' => $aplikasi->page_path_filter,
+            'property_id' => $aplikasi->property_id,
+            'additional_config' => $aplikasi->konfigurasi_tambahan ?? [],
+        ];
+
+        
+    }
 
     /**
      * Menginisialisasi Google Client.
@@ -78,8 +112,8 @@ class AnalyticsController extends Controller
     /**
      * @OA\Get(
      *     path="/analytics/dashboard-summary",
-     *     summary="Ringkasan Dashboard Utama",
-     *     description="Menghasilkan ringkasan data komprehensif untuk semua aplikasi yang terdaftar dalam satu periode waktu.",
+     *     summary="Ringkasan Dashboard Utama - Dynamic Applications",
+     *     description="Menghasilkan ringkasan data komprehensif untuk semua aplikasi yang terdaftar di database dalam satu periode waktu.",
      *     operationId="getDashboardSummary",
      *     tags={"Dashboard"},
      *     @OA\Parameter(
@@ -118,7 +152,9 @@ class AnalyticsController extends Controller
      *                          type="object",
      *                          @OA\Property(property="id", type="integer", example=1),
      *                          @OA\Property(property="app_key", type="string", example="lapakami"),
+     *                          @OA\Property(property="db_id", type="integer", example=1),
      *                          @OA\Property(property="name", type="string", example="Aplikasi Lapakami"),
+     *                          @OA\Property(property="property_id", type="string", example="123456789"),
      *                          @OA\Property(property="key_metrics", type="object",
      *                              @OA\Property(property="total_visitor", type="integer", example=1500),
      *                              @OA\Property(property="active_user", type="integer", example=1200),
@@ -150,9 +186,9 @@ class AnalyticsController extends Controller
      *                      )
      *                 ),
      *                 @OA\Property(property="meta", type="object",
-     *                      @OA\Property(property="total", type="integer", example=1),
+     *                      @OA\Property(property="total", type="integer", example=3),
      *                      @OA\Property(property="page", type="integer", example=1),
-     *                      @OA\Property(property="limit", type="integer", example=1)
+     *                      @OA\Property(property="limit", type="integer", example=3)
      *                 )
      *             ),
      *             @OA\Property(
@@ -178,12 +214,28 @@ class AnalyticsController extends Controller
         try {
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
-            $propertyId = env('GA_PROPERTY_ID');
             $dateRange = $this->getDateRangeFromPeriod_new($request);
+            $applications = $this->getApplicationsFromDatabase();
+            
+            if (empty($applications)) {
+                return response()->json([
+                    'data' => [
+                        'applications' => [],
+                        'meta' => ['total' => 0, 'page' => 1, 'limit' => 0],
+                    ],
+                    'metadata' => [
+                        'period' => $request->query('period', 'last_7_days'),
+                        'dateRange' => $dateRange,
+                        'message' => 'Tidak ada aplikasi aktif yang ditemukan'
+                    ]
+                ]);
+            }
+
             $summaryData = [];
             $appIdCounter = 1;
 
-            foreach ($this->applications as $appKey => $appConfig) {
+            foreach ($applications as $appKey => $appConfig) {
+                $propertyId = $appConfig['property_id']; // Gunakan property_id dari database
                 
                 $appFilter = [
                     new FilterExpression(['filter' => new Filter([
@@ -236,7 +288,9 @@ class AnalyticsController extends Controller
                 $summaryData[] = [
                     'id' => $appIdCounter++,
                     'app_key' => $appKey,
+                    'db_id' => $appConfig['id'], // ID dari database
                     'name' => $appConfig['name'],
+                    'property_id' => $appConfig['property_id'], // Tampilkan property_id
                     'key_metrics' => [
                         'total_visitor' => (int)($totals['sessions'] ?? 0),
                         'active_user' => (int)($totals['activeUsers'] ?? 0),
@@ -261,7 +315,11 @@ class AnalyticsController extends Controller
                     'applications' => $summaryData,
                     'meta' => [ 'total' => count($summaryData), 'page' => 1, 'limit' => count($summaryData), ],
                 ],
-                'metadata' => [ 'period' => $request->query('period', 'last_7_days'), 'dateRange' => $dateRange ]
+                'metadata' => [ 
+                    'period' => $request->query('period', 'last_7_days'), 
+                    'dateRange' => $dateRange,
+                    'applications_loaded_from_database' => count($applications)
+                ]
             ];
 
             return response()->json($finalResponse);
@@ -278,8 +336,8 @@ class AnalyticsController extends Controller
     /**
      * @OA\Get(
      *     path="/analytics/realtime-summary",
-     *     summary="Ringkasan Realtime per Aplikasi",
-     *     description="Mengambil data jumlah pengguna aktif saat ini (realtime) untuk setiap aplikasi yang terdaftar.",
+     *     summary="Ringkasan Realtime per Aplikasi - Dynamic",
+     *     description="Mengambil data jumlah pengguna aktif saat ini (realtime) untuk setiap aplikasi yang terdaftar di database.",
      *     operationId="getRealtimeSummary",
      *     tags={"Dashboard", "Realtime"},
      *     @OA\Response(
@@ -293,7 +351,9 @@ class AnalyticsController extends Controller
      *                  @OA\Items(
      *                      type="object",
      *                      @OA\Property(property="app_key", type="string", example="lapakami"),
+     *                      @OA\Property(property="db_id", type="integer", example=1),
      *                      @OA\Property(property="name", type="string", example="Aplikasi Lapakami"),
+     *                      @OA\Property(property="property_id", type="string", example="123456789"),
      *                      @OA\Property(property="active_users_now", type="integer", example=15)
      *                  )
      *             )
@@ -311,10 +371,11 @@ class AnalyticsController extends Controller
         try {
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
-            $propertyId = env('GA_PROPERTY_ID');
+            $applications = $this->getApplicationsFromDatabase();
             $realtimeData = [];
 
-            foreach ($this->applications as $appKey => $appConfig) {
+            foreach ($applications as $appKey => $appConfig) {
+                $propertyId = $appConfig['property_id']; //Gunakan property_id dari database
                 
                 $realtimeFilter = new FilterExpression([
                     'filter' => new Filter([
@@ -329,7 +390,9 @@ class AnalyticsController extends Controller
 
                 $realtimeData[] = [
                     'app_key' => $appKey,
+                    'db_id' => $appConfig['id'],
                     'name' => $appConfig['name'],
+                    'property_id' => $appConfig['property_id'],
                     'active_users_now' => (int)$totalActiveUsers,
                 ];
             }
@@ -346,14 +409,14 @@ class AnalyticsController extends Controller
     /**
      * @OA\Get(
      *     path="/analytics/{appKey}/report",
-     *     summary="Laporan Detail per Aplikasi",
-     *     description="Menghasilkan laporan detail (seperti halaman populer atau geografi) untuk aplikasi tertentu dengan filter opsional.",
+     *     summary="Laporan Detail per Aplikasi - Dynamic",
+     *     description="Menghasilkan laporan detail (seperti halaman populer atau geografi) untuk aplikasi tertentu dengan filter opsional. Data aplikasi diambil dari database.",
      *     operationId="generateReport",
      *     tags={"Detail Reports"},
      *     @OA\Parameter(
      *         name="appKey",
      *         in="path",
-     *         description="Kunci unik aplikasi (contoh: 'lapakami').",
+     *         description="Kunci unik aplikasi yang terdaftar di database (contoh: 'lapakami').",
      *         required=true,
      *         @OA\Schema(type="string")
      *     ),
@@ -429,13 +492,15 @@ class AnalyticsController extends Controller
     public function generateReport(Request $request, string $appKey)
     {
         try {
-            if (!isset($this->applications[$appKey])) {
-                return response()->json(['error' => "Aplikasi '{$appKey}' tidak ditemukan."], 404);
+            $appConfig = $this->getApplicationByKey($appKey);
+            
+            if (!$appConfig) {
+                return response()->json(['error' => "Aplikasi '{$appKey}' tidak ditemukan atau tidak aktif."], 404);
             }
-            $appConfig = $this->applications[$appKey];
+
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
-            $propertyId = env('GA_PROPERTY_ID');
+            $propertyId = $appConfig['property_id']; // Gunakan property_id dari database
             $reportType = $request->query('type', 'pages');
             $dateRangeConfig = $this->getDateRangeFromPeriod_new($request);
             $filters = $this->buildAdvancedFilters($request, $appConfig);
@@ -477,6 +542,9 @@ class AnalyticsController extends Controller
             return response()->json([
                 'metadata' => [
                     'application' => $appConfig['name'],
+                    'app_key' => $appKey,
+                    'db_id' => $appConfig['id'],
+                    'property_id' => $appConfig['property_id'],
                     'reportType' => $reportType,
                     'dateRange' => $dateRangeConfig,
                     'appliedFilters' => $this->getAppliedFiltersForMetadata($request),
@@ -488,12 +556,204 @@ class AnalyticsController extends Controller
             return $this->handleApiException("Laporan Fleksibel '{$appKey}'", $e);
         }
     }
-    
+
+    /**
+     * @OA\Get(
+     *     path="/analytics-data",
+     *     summary="Data Realtime Detail - Legacy dengan Support Dynamic Apps",
+     *     description="Menyediakan data realtime yang terperinci, sekarang mendukung multiple property ID dari database.",
+     *     operationId="fetchRealtimeData",
+     *     tags={"Legacy Reports", "Realtime"},
+     *     @OA\Parameter(
+     *         name="app_key",
+     *         in="query",
+     *         description="Key aplikasi spesifik, jika tidak diisi akan menggunakan aplikasi pertama yang aktif",
+     *         required=false,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Sukses mendapatkan data realtime detail.",
+     *         @OA\JsonContent(type="object",
+     *              @OA\Property(property="totalActiveUsers", type="integer"),
+     *              @OA\Property(property="metadata", type="object",
+     *                  @OA\Property(property="app_key", type="string"),
+     *                  @OA\Property(property="app_name", type="string"),
+     *                  @OA\Property(property="property_id", type="string")
+     *              ),
+     *              @OA\Property(property="reports", type="object",
+     *                  @OA\Property(property="byPage", type="array", @OA\Items(type="object")),
+     *                  @OA\Property(property="byLocation", type="array", @OA\Items(type="object")),
+     *                  @OA\Property(property="byPlatform", type="array", @OA\Items(type="object")),
+     *                  @OA\Property(property="byAudience", type="array", @OA\Items(type="object")),
+     *                  @OA\Property(property="activityFeed", type="array", @OA\Items(type="object")),
+     *              )
+     *         )
+     *     ),
+     *     @OA\Response(response=500, description="Error", @OA\JsonContent(ref="#/components/schemas/ErrorResponse"))
+     * )
+     */
+    public function fetchRealtimeData(Request $request)
+    {
+        try {
+            $client = $this->getGoogleClient();
+            $analyticsData = new AnalyticsData($client);
+            
+            // Ambil aplikasi berdasarkan app_key atau gunakan yang pertama jika tidak ada
+            $appKey = $request->query('app_key');
+            if ($appKey) {
+                $appConfig = $this->getApplicationByKey($appKey);
+                if (!$appConfig) {
+                    return response()->json(['error' => "Aplikasi '{$appKey}' tidak ditemukan atau tidak aktif."], 404);
+                }
+            } else {
+                $applications = $this->getApplicationsFromDatabase();
+                if (empty($applications)) {
+                    return response()->json(['error' => "Tidak ada aplikasi aktif yang ditemukan."], 404);
+                }
+                $appKey = array_key_first($applications);
+                $appConfig = $applications[$appKey];
+            }
+            
+            $propertyId = $appConfig['property_id'];
+
+            $usersByPage = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['unifiedScreenName', 'deviceCategory'], ['activeUsers']);
+            $usersByLocation = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['country', 'city'], ['activeUsers']);
+            $usersByPlatform = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['platform'], ['activeUsers']);
+            $usersByAudience = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['audienceName'], ['activeUsers']);
+            $activityFeed = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['minutesAgo', 'unifiedScreenName', 'city'], ['activeUsers']);
+            
+            $totalActiveUsers = collect($usersByLocation['rows'] ?? [])->sum('activeUsers');
+            
+            return response()->json([
+                'totalActiveUsers' => (int) $totalActiveUsers,
+                'metadata' => [
+                    'app_key' => $appKey,
+                    'app_name' => $appConfig['name'],
+                    'property_id' => $appConfig['property_id'],
+                    'db_id' => $appConfig['id']
+                ],
+                'reports' => [
+                    'byPage' => $usersByPage['rows'] ?? [],
+                    'byLocation' => $usersByLocation['rows'] ?? [],
+                    'byPlatform' => $usersByPlatform['rows'] ?? [],
+                    'byAudience' => $usersByAudience['rows'] ?? [],
+                    'activityFeed' => $activityFeed['rows'] ?? []
+                ]
+            ]);
+        } catch (Exception $e) { 
+            return $this->handleApiException('Realtime', $e); 
+        }
+    }
+
+    // LEGACY FUNCTIONS - Tetap menggunakan env default untuk backward compatibility
     
     /**
      * @OA\Get(
+     *     path="/analytics-historical",
+     *     summary="Data Historis Komprehensif - Legacy",
+     *     description="Menyediakan berbagai macam laporan historis dalam satu panggilan, menggunakan property ID default dari environment.",
+     *     operationId="fetchHistoricalData",
+     *     tags={"Legacy Reports"},
+     *     @OA\Parameter(
+     *         name="period",
+     *         in="query",
+     *         description="Periode waktu untuk laporan.",
+     *         required=false,
+     *         @OA\Schema(type="string", enum={"7days", "28days", "90days"}, default="28days")
+     *     ),
+     *      @OA\Parameter(
+     *         name="app_key",
+     *         in="query",
+     *         description="Key aplikasi spesifik dari database, jika tidak diisi akan menggunakan property ID default dari env",
+     *         required=false,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Sukses mendapatkan data historis.",
+     *         @OA\JsonContent(type="object",
+     *              @OA\Property(property="summary", type="object"),
+     *              @OA\Property(property="reports", type="object"),
+     *              @OA\Property(property="metadata", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(response=500, description="Error", @OA\JsonContent(ref="#/components/schemas/ErrorResponse"))
+     * )
+     */
+    public function fetchHistoricalData(Request $request)
+    {
+        try {
+            $client = $this->getGoogleClient();
+            $analyticsData = new AnalyticsData($client);
+            
+            // Support untuk app_key dinamis atau fallback ke env default
+            $appKey = $request->query('app_key');
+            $propertyId = env('GA_PROPERTY_ID'); // Default
+            $appName = 'Default Application';
+            
+            if ($appKey) {
+                $appConfig = $this->getApplicationByKey($appKey);
+                if ($appConfig) {
+                    $propertyId = $appConfig['property_id'];
+                    $appName = $appConfig['name'];
+                }
+            }
+            
+            $allowedPeriods = ['7days' => '7daysAgo', '28days' => '28daysAgo', '90days' => '90daysAgo'];
+            $period = $request->query('period', '28days');
+            $startDate = $allowedPeriods[$period] ?? $allowedPeriods['28days'];
+            $dateRange = ['start_date' => $startDate, 'end_date' => 'today'];
+            
+            $pageData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['pageTitle', 'pagePath'], ['screenPageViews', 'sessions', 'engagementRate', 'conversions'], 'screenPageViews');
+            $geoData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['country', 'city'], ['activeUsers', 'newUsers', 'sessions', 'engagementRate', 'conversions'], 'activeUsers');
+            $trafficSourceData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['sessionSourceMedium'], ['sessions', 'activeUsers', 'newUsers', 'engagementRate', 'conversions'], 'sessions');
+            $techData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['deviceCategory', 'browser', 'operatingSystem'], ['sessions', 'activeUsers'], 'sessions');
+            $dailyTrendData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['date'], ['activeUsers', 'sessions'], null, 100);
+            $conversionEventData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['eventName'], ['conversions'], 'conversions');
+            $landingPageData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['landingPage'], ['sessions', 'newUsers', 'engagementRate'], 'sessions');
+            $retentionData = $this->runCohortReport($analyticsData, $propertyId);
+            
+            $summaryTotals = $geoData['totals'];
+            $summary = [
+                'activeUsers' => (int) ($summaryTotals['activeUsers'] ?? 0), 
+                'newUsers' => (int) ($summaryTotals['newUsers'] ?? 0), 
+                'sessions' => (int) ($summaryTotals['sessions'] ?? 0), 
+                'conversions' => (int) ($summaryTotals['conversions'] ?? 0), 
+                'screenPageViews' => (int) ($pageData['totals']['screenPageViews'] ?? 0), 
+                'engagementRate' => round((float)($summaryTotals['engagementRate'] ?? 0) * 100, 2) . '%', 
+                'averageSessionDuration' => gmdate("i:s", (int)($pageData['totals']['averageSessionDuration'] ?? 0)),
+            ];
+            
+            return response()->json([
+                'summary' => $summary, 
+                'reports' => [
+                    'dailyTrends' => $dailyTrendData['rows'] ?? [], 
+                    'pages' => $pageData['rows'] ?? [], 
+                    'landingPages' => $landingPageData['rows'] ?? [], 
+                    'geography' => $geoData['rows'] ?? [], 
+                    'trafficSources' => $trafficSourceData['rows'] ?? [], 
+                    'conversionEvents' => $conversionEventData['rows'] ?? [], 
+                    'technology' => $techData['rows'] ?? [], 
+                    'userRetention' => $retentionData ?? []
+                ],
+                'metadata' => [
+                    'app_name' => $appName,
+                    'app_key' => $appKey,
+                    'property_id' => $propertyId,
+                    'period' => $period,
+                    'dateRange' => $dateRange
+                ]
+            ]);
+        } catch (Exception $e) { 
+            return $this->handleApiException('Historis', $e); 
+        }
+    }
+
+    /**
+     * @OA\Get(
      *     path="/analytics/geography-report",
-     *     summary="Laporan Geografi",
+     *     summary="Laporan Geografi - Legacy dengan Dynamic Support",
      *     description="Menghasilkan laporan demografi pengguna berdasarkan negara dan kota.",
      *     operationId="fetchGeographyReport",
      *     tags={"Legacy Reports"},
@@ -505,6 +765,9 @@ class AnalyticsController extends Controller
      *     ),
      *     @OA\Parameter(
      *         name="end_date", in="query", description="Tanggal akhir (Y-m-d) jika 'custom'.", required=false, @OA\Schema(type="string", format="date")
+     *     ),
+     *     @OA\Parameter(
+     *         name="app_key", in="query", description="Key aplikasi dari database", required=false, @OA\Schema(type="string")
      *     ),
      *     @OA\Response(
      *         response=200,
@@ -523,7 +786,19 @@ class AnalyticsController extends Controller
         try {
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
-            $propertyId = env('GA_PROPERTY_ID');
+            
+            // Support untuk app_key dinamis atau fallback ke env default
+            $appKey = $request->query('app_key');
+            $propertyId = env('GA_PROPERTY_ID'); // Default
+            $appName = 'Default Application';
+            
+            if ($appKey) {
+                $appConfig = $this->getApplicationByKey($appKey);
+                if ($appConfig) {
+                    $propertyId = $appConfig['property_id'];
+                    $appName = $appConfig['name'];
+                }
+            }
 
             $period = $request->query('period', 'last_7_days');
             $startDate = $request->query('start_date');
@@ -581,6 +856,9 @@ class AnalyticsController extends Controller
                 'metadata' => [
                     'period' => $period,
                     'dateRange' => $dateRangeConfig,
+                    'app_key' => $appKey,
+                    'app_name' => $appName,
+                    'property_id' => $propertyId,
                 ],
                 'totals' => $formattedTotals,
                 'rows' => $formattedRows
@@ -594,7 +872,7 @@ class AnalyticsController extends Controller
     /**
      * @OA\Get(
      *     path="/analytics/pages-report",
-     *     summary="Laporan Halaman & Layar",
+     *     summary="Laporan Halaman & Layar - Legacy dengan Dynamic Support",
      *     description="Menghasilkan laporan halaman yang paling banyak dilihat pengguna.",
      *     operationId="fetchPagesReport",
      *     tags={"Legacy Reports"},
@@ -606,6 +884,9 @@ class AnalyticsController extends Controller
      *     ),
      *     @OA\Parameter(
      *         name="end_date", in="query", description="Tanggal akhir (Y-m-d) jika 'custom'.", required=false, @OA\Schema(type="string", format="date")
+     *     ),
+     *     @OA\Parameter(
+     *         name="app_key", in="query", description="Key aplikasi dari database", required=false, @OA\Schema(type="string")
      *     ),
      *     @OA\Response(
      *         response=200,
@@ -624,7 +905,20 @@ class AnalyticsController extends Controller
         try {
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
-            $propertyId = env('GA_PROPERTY_ID');
+            
+            // Support untuk app_key dinamis atau fallback ke env default
+            $appKey = $request->query('app_key');
+            $propertyId = env('GA_PROPERTY_ID'); // Default
+            $appName = 'Default Application';
+            
+            if ($appKey) {
+                $appConfig = $this->getApplicationByKey($appKey);
+                if ($appConfig) {
+                    $propertyId = $appConfig['property_id'];
+                    $appName = $appConfig['name'];
+                }
+            }
+            
             $period = $request->query('period', 'last_7_days');
             $startDate = $request->query('start_date');
             $endDate = $request->query('end_date');
@@ -664,7 +958,13 @@ class AnalyticsController extends Controller
             ];
 
             return response()->json([
-                'metadata' => ['period' => $period,'dateRange' => $dateRangeConfig],
+                'metadata' => [
+                    'period' => $period,
+                    'dateRange' => $dateRangeConfig,
+                    'app_key' => $appKey,
+                    'app_name' => $appName,
+                    'property_id' => $propertyId,
+                ],
                 'totals' => $formattedTotals,
                 'rows' => $formattedRows
             ]);
@@ -674,96 +974,9 @@ class AnalyticsController extends Controller
         }
     }
 
-    /**
-     * @OA\Get(
-     *     path="/analytics-data",
-     *     summary="Data Realtime Detail",
-     *     description="Menyediakan data realtime yang terperinci, termasuk pengguna berdasarkan halaman, lokasi, platform, dan feed aktivitas.",
-     *     operationId="fetchRealtimeData",
-     *     tags={"Legacy Reports", "Realtime"},
-     *     @OA\Response(
-     *         response=200,
-     *         description="Sukses mendapatkan data realtime detail.",
-     *         @OA\JsonContent(type="object",
-     *              @OA\Property(property="totalActiveUsers", type="integer"),
-     *              @OA\Property(property="reports", type="object",
-     *                  @OA\Property(property="byPage", type="array", @OA\Items(type="object")),
-     *                  @OA\Property(property="byLocation", type="array", @OA\Items(type="object")),
-     *                  @OA\Property(property="byPlatform", type="array", @OA\Items(type="object")),
-     *                  @OA\Property(property="byAudience", type="array", @OA\Items(type="object")),
-     *                  @OA\Property(property="activityFeed", type="array", @OA\Items(type="object")),
-     *              )
-     *         )
-     *     ),
-     *     @OA\Response(response=500, description="Error", @OA\JsonContent(ref="#/components/schemas/ErrorResponse"))
-     * )
-     */
-    public function fetchRealtimeData()
-    {
-        try {
-            $client = $this->getGoogleClient();
-            $analyticsData = new AnalyticsData($client);
-            $propertyId = env('GA_PROPERTY_ID');
-            $usersByPage = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['unifiedScreenName', 'deviceCategory'], ['activeUsers']);
-            $usersByLocation = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['country', 'city'], ['activeUsers']);
-            $usersByPlatform = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['platform'], ['activeUsers']);
-            $usersByAudience = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['audienceName'], ['activeUsers']);
-            $activityFeed = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['minutesAgo', 'unifiedScreenName', 'city'], ['activeUsers']);
-            $totalActiveUsers = collect($usersByLocation['rows'] ?? [])->sum('activeUsers');
-            return response()->json(['totalActiveUsers' => (int) $totalActiveUsers, 'reports' => ['byPage' => $usersByPage['rows'] ?? [], 'byLocation' => $usersByLocation['rows'] ?? [], 'byPlatform' => $usersByPlatform['rows'] ?? [], 'byAudience' => $usersByAudience['rows'] ?? [], 'activityFeed'=> $activityFeed['rows'] ?? []]]);
-        } catch (Exception $e) { return $this->handleApiException('Realtime', $e); }
-    }
-
-    /**
-     * @OA\Get(
-     *     path="/analytics-historical",
-     *     summary="Data Historis Komprehensif",
-     *     description="Menyediakan berbagai macam laporan historis dalam satu panggilan, termasuk tren harian, halaman, geografi, sumber trafik, teknologi, dan retensi.",
-     *     operationId="fetchHistoricalData",
-     *     tags={"Legacy Reports"},
-     *     @OA\Parameter(
-     *         name="period",
-     *         in="query",
-     *         description="Periode waktu untuk laporan.",
-     *         required=false,
-     *         @OA\Schema(type="string", enum={"7days", "28days", "90days"}, default="28days")
-     *     ),
-     *     @OA\Response(
-     *         response=200,
-     *         description="Sukses mendapatkan data historis.",
-     *         @OA\JsonContent(type="object",
-     *              @OA\Property(property="summary", type="object"),
-     *              @OA\Property(property="reports", type="object")
-     *         )
-     *     ),
-     *     @OA\Response(response=500, description="Error", @OA\JsonContent(ref="#/components/schemas/ErrorResponse"))
-     * )
-     */
-    public function fetchHistoricalData(Request $request)
-    {
-        try {
-            $client = $this->getGoogleClient();
-            $analyticsData = new AnalyticsData($client);
-            $propertyId = env('GA_PROPERTY_ID');
-            $allowedPeriods = ['7days' => '7daysAgo', '28days' => '28daysAgo', '90days' => '90daysAgo'];
-            $period = $request->query('period', '28days');
-            $startDate = $allowedPeriods[$period] ?? $allowedPeriods['28days'];
-            $dateRange = ['start_date' => $startDate, 'end_date' => 'today'];
-            $pageData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['pageTitle', 'pagePath'], ['screenPageViews', 'sessions', 'engagementRate', 'conversions'], 'screenPageViews');
-            $geoData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['country', 'city'], ['activeUsers', 'newUsers', 'sessions', 'engagementRate', 'conversions'], 'activeUsers');
-            $trafficSourceData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['sessionSourceMedium'], ['sessions', 'activeUsers', 'newUsers', 'engagementRate', 'conversions'], 'sessions');
-            $techData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['deviceCategory', 'browser', 'operatingSystem'], ['sessions', 'activeUsers'], 'sessions');
-            $dailyTrendData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['date'], ['activeUsers', 'sessions'], null, 100);
-            $conversionEventData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['eventName'], ['conversions'], 'conversions');
-            $landingPageData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['landingPage'], ['sessions', 'newUsers', 'engagementRate'], 'sessions');
-            $retentionData = $this->runCohortReport($analyticsData, $propertyId);
-            $summaryTotals = $geoData['totals'];
-            $summary = ['activeUsers' => (int) ($summaryTotals['activeUsers'] ?? 0), 'newUsers' => (int) ($summaryTotals['newUsers'] ?? 0), 'sessions' => (int) ($summaryTotals['sessions'] ?? 0), 'conversions' => (int) ($summaryTotals['conversions'] ?? 0), 'screenPageViews' => (int) ($pageData['totals']['screenPageViews'] ?? 0), 'engagementRate' => round((float)($summaryTotals['engagementRate'] ?? 0) * 100, 2) . '%', 'averageSessionDuration' => gmdate("i:s", (int)($pageData['totals']['averageSessionDuration'] ?? 0)),];
-            return response()->json(['summary' => $summary, 'reports' => ['dailyTrends' => $dailyTrendData['rows'] ?? [], 'pages' => $pageData['rows'] ?? [], 'landingPages' => $landingPageData['rows'] ?? [], 'geography' => $geoData['rows'] ?? [], 'trafficSources' => $trafficSourceData['rows'] ?? [], 'conversionEvents' => $conversionEventData['rows'] ?? [], 'technology' => $techData['rows'] ?? [], 'userRetention' => $retentionData ?? []]]);
-        } catch (Exception $e) { return $this->handleApiException('Historis', $e); }
-    }
-
-    // INI HELPER
+    // ===================================================================
+    // HELPER FUNCTIONS - Tetap sama seperti sebelumnya
+    // ===================================================================
 
     private function getDateRangeFromPeriod(string $period, ?string $customStart, ?string $customEnd): array
     {

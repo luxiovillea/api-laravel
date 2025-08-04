@@ -11,14 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('personal_access_tokens', function (Blueprint $table) {
+        Schema::create('aplikasi', function (Blueprint $table) {
             $table->id();
-            $table->morphs('tokenable');
-            $table->text('name');
-            $table->string('token', 64)->unique();
-            $table->text('abilities')->nullable();
-            $table->timestamp('last_used_at')->nullable();
-            $table->timestamp('expires_at')->nullable()->index();
+            $table->string('nama_aplikasi');
+            $table->string('key_aplikasi')->unique(); // lapakami, dashboard, etc
+            $table->string('property_id'); // GA4 Property ID
+            $table->string('page_path_filter')->default('/'); // Filter untuk path halaman
+            $table->text('deskripsi')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->json('konfigurasi_tambahan')->nullable(); // Untuk konfigurasi khusus
             $table->timestamps();
         });
     }
@@ -28,6 +29,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('personal_access_tokens');
+        Schema::dropIfExists('aplikasi');
     }
 };

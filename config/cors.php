@@ -1,5 +1,4 @@
 <?php
-// GANTI SELURUH ISI FILE config/cors.php dengan ini:
 
 return [
     'paths' => [
