@@ -14,12 +14,12 @@ return new class extends Migration
         Schema::create('aplikasi', function (Blueprint $table) {
             $table->id();
             $table->string('nama_aplikasi');
-            $table->string('key_aplikasi')->unique(); // lapakami, dashboard, etc
-            $table->string('property_id'); // GA4 Property ID
-            $table->string('page_path_filter')->default('/'); // Filter untuk path halaman
+            $table->string('key_aplikasi')->unique(); 
+            $table->string('property_id'); 
+            $table->string('page_path_filter')->default('/'); 
             $table->text('deskripsi')->nullable();
             $table->boolean('is_active')->default(true);
-            $table->json('konfigurasi_tambahan')->nullable(); // Untuk konfigurasi khusus
+            $table->json('konfigurasi_tambahan')->nullable();
             $table->timestamps();
         });
     }
