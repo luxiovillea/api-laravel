@@ -24,6 +24,7 @@ Route::get('/aplikasi/key/{key}', [AplikasiController::class, 'getByKey'])->name
 // ROUTES UNTUK MANAGEMENT OPD
 // ===================================================================
 Route::apiResource('/opd', OpdController::class);
+Route::get('opd/{id}/aplikasi', [OpdController::class, 'aplikasis']);
 
 // ===================================================================
 // ROUTES ANALYTICS - ENDPOINT UTAMA (DIREKOMENDASIKAN)
