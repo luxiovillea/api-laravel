@@ -9,7 +9,6 @@ class Aplikasi extends Model
 {
     use HasFactory;
     
-    // TAMBAHKAN INI - specify nama tabel yang benar
     protected $table = 'aplikasi';
 
     protected $fillable = [
