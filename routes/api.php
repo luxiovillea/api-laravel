@@ -3,6 +3,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\Api\AplikasiController;
+use App\Http\Controllers\Api\OpdController;
 
 /*
 |--------------------------------------------------------------------------
@@ -18,6 +19,11 @@ use App\Http\Controllers\Api\AplikasiController;
 // ===================================================================
 Route::apiResource('/aplikasi', AplikasiController::class);
 Route::get('/aplikasi/key/{key}', [AplikasiController::class, 'getByKey'])->name('aplikasi.getByKey');
+
+// ===================================================================
+// ROUTES UNTUK MANAGEMENT OPD
+// ===================================================================
+Route::apiResource('/opd', OpdController::class);
 
 // ===================================================================
 // ROUTES ANALYTICS - ENDPOINT UTAMA (DIREKOMENDASIKAN)

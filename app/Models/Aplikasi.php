@@ -8,12 +8,14 @@ use Illuminate\Database\Eloquent\Model;
 class Aplikasi extends Model
 {
     use HasFactory;
-
+    
+    // TAMBAHKAN INI - specify nama tabel yang benar
     protected $table = 'aplikasi';
 
     protected $fillable = [
+        'opd_id',
         'nama_aplikasi',
-        'key_aplikasi',
+        'key_aplikasi',  
         'property_id',
         'page_path_filter',
         'deskripsi',
@@ -26,20 +28,13 @@ class Aplikasi extends Model
         'konfigurasi_tambahan' => 'array',
     ];
 
-    // Scope untuk aplikasi yang aktif
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
     }
-
-    // Accessor untuk mendapatkan konfigurasi aplikasi dalam format yang dibutuhkan Analytics Controller
-    public function getAnalyticsConfigAttribute()
+   
+    public function opd()
     {
-        return [
-            'name' => $this->nama_aplikasi,
-            'page_path_filter' => $this->page_path_filter,
-            'property_id' => $this->property_id,
-            'additional_config' => $this->konfigurasi_tambahan ?? [],
-        ];
+        return $this->belongsTo(Opd::class);
     }
 }
