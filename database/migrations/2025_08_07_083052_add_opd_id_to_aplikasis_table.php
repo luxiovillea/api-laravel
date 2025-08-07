@@ -6,17 +6,22 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
-        // Ubah dari 'aplikasis' ke 'aplikasi'
         Schema::table('aplikasi', function (Blueprint $table) {
-            $table->foreignId('opd_id')->nullable()->after('id')->constrained('opds')->onDelete('set null');
+            $table->unsignedBigInteger('opd_id')->nullable()->after('id');
+            $table->foreign('opd_id')->references('id')->on('opds')->onDelete('set null');
         });
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
-        // Ubah dari 'aplikasis' ke 'aplikasi'  
         Schema::table('aplikasi', function (Blueprint $table) {
             $table->dropForeign(['opd_id']);
             $table->dropColumn('opd_id');
