@@ -47,7 +47,7 @@ class OpdController extends Controller
      */
     public function index()
     {
-        $opds = Opd::orderBy('nama')->get();
+        $opds = Opd::orderBy('id')->get();
         
         return response()->json([
             'success' => true,
@@ -328,15 +328,11 @@ class OpdController extends Controller
 
         $query = $opd->aplikasis();
         
-        // --- LOGIKA BARU YANG DIPERBAIKI ---
-        // Cek jika parameter 'active_only' ada di request
         if ($request->has('active_only')) {
-            // Terapkan filter berdasarkan nilai boolean dari parameter
             $query->where('is_active', $request->boolean('active_only'));
         }
-        // --- AKHIR LOGIKA BARU ---
         
-        $aplikasis = $query->orderBy('nama_aplikasi')->get();
+        $aplikasis = $query->orderBy('id')->get();
 
         return response()->json([
             'success' => true,
@@ -416,15 +412,11 @@ class OpdController extends Controller
 
         $query = $opd->aplikasis();
         
-        // --- LOGIKA BARU YANG DIPERBAIKI ---
-        // Cek jika parameter 'active_only' ada di request
         if ($request->has('active_only')) {
-            // Terapkan filter berdasarkan nilai boolean dari parameter
             $query->where('is_active', $request->boolean('active_only'));
         }
-        // --- AKHIR LOGIKA BARU ---
         
-        $aplikasis = $query->orderBy('nama_aplikasi')->get();
+        $aplikasis = $query->orderBy('id')->get();
 
         return response()->json([
             'success' => true,

@@ -75,7 +75,7 @@ class AplikasiController extends Controller
             $query->active();
         }
         
-        $aplikasi = $query->orderBy('nama_aplikasi')->get();
+        $aplikasi = $query->orderBy('id', 'asc')->get();
         
         return response()->json([
             'success' => true,

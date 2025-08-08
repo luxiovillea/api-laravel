@@ -14,14 +14,9 @@ class AplikasiResource extends JsonResource
      */
     public function toArray($request)
     {
-        // $this->resource adalah objek Model Aplikasi
-        // $this->opd adalah hasil dari pemanggilan relasi opd() di model
         return [
             'id' => $this->id,
             
-            // INI BAGIAN PENTINGNYA:
-            // Ambil data dari relasi 'opd'
-            // Tanda tanya (?) (nullsafe operator) mencegah error jika opd_id-nya null
             'kode_opd' => $this->opd?->kode_opd,
             'nama_opd' => $this->opd?->nama,
             'akronim_opd' => $this->opd?->akronim,
