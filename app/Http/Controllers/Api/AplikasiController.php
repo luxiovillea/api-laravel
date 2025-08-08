@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Aplikasi;
+use App\Models\Opd;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -42,6 +43,7 @@ class AplikasiController extends Controller
      *                 @OA\Items(
      *                     type="object",
      *                     @OA\Property(property="id", type="integer", example=1),
+     *                     @OA\Property(property="opd_id", type="integer", example=1),
      *                     @OA\Property(property="nama_aplikasi", type="string", example="Aplikasi Lapakami"),
      *                     @OA\Property(property="key_aplikasi", type="string", example="lapakami"),
      *                     @OA\Property(property="property_id", type="string", example="123456789"),
@@ -50,7 +52,15 @@ class AplikasiController extends Controller
      *                     @OA\Property(property="is_active", type="boolean", example=true),
      *                     @OA\Property(property="konfigurasi_tambahan", type="object"),
      *                     @OA\Property(property="created_at", type="string", format="date-time"),
-     *                     @OA\Property(property="updated_at", type="string", format="date-time")
+     *                     @OA\Property(property="updated_at", type="string", format="date-time"),
+     *                     @OA\Property(
+     *                         property="opd",
+     *                         type="object",
+     *                         @OA\Property(property="id", type="integer", example=1),
+     *                         @OA\Property(property="kode_opd", type="string", example="2622240000"),
+     *                         @OA\Property(property="nama", type="string", example="Badan Kepegawaian dan Pengembangan Sumber Daya Manusia"),
+     *                         @OA\Property(property="akronim", type="string", example="BKPSDM")
+     *                     )
      *                 )
      *             )
      *         )
@@ -59,7 +69,7 @@ class AplikasiController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Aplikasi::query();
+        $query = Aplikasi::with('opd');
         
         if ($request->boolean('active_only')) {
             $query->active();
@@ -85,6 +95,8 @@ class AplikasiController extends Controller
      *         required=true,
      *         @OA\JsonContent(
      *             required={"nama_aplikasi", "key_aplikasi", "property_id"},
+     *             @OA\Property(property="opd_id", type="integer", example=1, description="ID OPD (optional)"),
+     *             @OA\Property(property="kode_opd", type="string", example="2622240000", description="Kode OPD sebagai alternatif opd_id"),
      *             @OA\Property(property="nama_aplikasi", type="string", example="Aplikasi Dashboard Baru"),
      *             @OA\Property(property="key_aplikasi", type="string", example="dashboard_baru"),
      *             @OA\Property(property="property_id", type="string", example="987654321"),
@@ -119,6 +131,8 @@ class AplikasiController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'opd_id' => 'nullable|exists:opds,id',
+            'kode_opd' => 'nullable|exists:opds,kode_opd',
             'nama_aplikasi' => 'required|string|max:255',
             'key_aplikasi' => 'required|string|max:100|unique:aplikasi,key_aplikasi',
             'property_id' => 'required|string|max:50',
@@ -128,11 +142,23 @@ class AplikasiController extends Controller
             'konfigurasi_tambahan' => 'nullable|array',
         ]);
 
+        // Jika kode_opd dikirim, cari opd_id berdasarkan kode_opd
+        if (isset($validated['kode_opd']) && !isset($validated['opd_id'])) {
+            $opd = Opd::where('kode_opd', $validated['kode_opd'])->first();
+            if ($opd) {
+                $validated['opd_id'] = $opd->id;
+            }
+            unset($validated['kode_opd']); // Hapus kode_opd dari data yang akan disimpan
+        }
+
         // Set default values
         $validated['page_path_filter'] = $validated['page_path_filter'] ?? '/';
         $validated['is_active'] = $validated['is_active'] ?? true;
 
         $aplikasi = Aplikasi::create($validated);
+
+        // Load relasi opd untuk response
+        $aplikasi->load('opd');
 
         return response()->json([
             'success' => true,
@@ -178,6 +204,8 @@ class AplikasiController extends Controller
      */
     public function show(Aplikasi $aplikasi)
     {
+        $aplikasi->load('opd');
+        
         return response()->json([
             'success' => true,
             'message' => 'Detail aplikasi berhasil diambil',
@@ -202,6 +230,8 @@ class AplikasiController extends Controller
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
+     *             @OA\Property(property="opd_id", type="integer", example=1),
+     *             @OA\Property(property="kode_opd", type="string", example="2622240000"),
      *             @OA\Property(property="nama_aplikasi", type="string"),
      *             @OA\Property(property="key_aplikasi", type="string"),
      *             @OA\Property(property="property_id", type="string"),
@@ -226,6 +256,8 @@ class AplikasiController extends Controller
     public function update(Request $request, Aplikasi $aplikasi)
     {
         $validated = $request->validate([
+            'opd_id' => 'nullable|exists:opds,id',
+            'kode_opd' => 'nullable|exists:opds,kode_opd',
             'nama_aplikasi' => 'sometimes|required|string|max:255',
             'key_aplikasi' => [
                 'sometimes',
@@ -241,12 +273,24 @@ class AplikasiController extends Controller
             'konfigurasi_tambahan' => 'nullable|array',
         ]);
 
+        // Jika kode_opd dikirim, cari opd_id berdasarkan kode_opd
+        if (isset($validated['kode_opd']) && !isset($validated['opd_id'])) {
+            $opd = Opd::where('kode_opd', $validated['kode_opd'])->first();
+            if ($opd) {
+                $validated['opd_id'] = $opd->id;
+            }
+            unset($validated['kode_opd']); // Hapus kode_opd dari data yang akan disimpan
+        }
+
         $aplikasi->update($validated);
+
+        // Load relasi opd untuk response
+        $aplikasi->load('opd');
 
         return response()->json([
             'success' => true,
             'message' => 'Aplikasi berhasil diupdate',
-            'data' => $aplikasi->fresh()
+            'data' => $aplikasi->fresh('opd')
         ]);
     }
 
@@ -317,7 +361,7 @@ class AplikasiController extends Controller
      */
     public function getByKey($key)
     {
-        $aplikasi = Aplikasi::where('key_aplikasi', $key)->first();
+        $aplikasi = Aplikasi::with('opd')->where('key_aplikasi', $key)->first();
 
         if (!$aplikasi) {
             return response()->json([

@@ -838,6 +838,10 @@
                                                         "type": "integer",
                                                         "example": 1
                                                     },
+                                                    "opd_id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
                                                     "nama_aplikasi": {
                                                         "type": "string",
                                                         "example": "Aplikasi Lapakami"
@@ -872,6 +876,27 @@
                                                     "updated_at": {
                                                         "type": "string",
                                                         "format": "date-time"
+                                                    },
+                                                    "opd": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "kode_opd": {
+                                                                "type": "string",
+                                                                "example": "2622240000"
+                                                            },
+                                                            "nama": {
+                                                                "type": "string",
+                                                                "example": "Badan Kepegawaian dan Pengembangan Sumber Daya Manusia"
+                                                            },
+                                                            "akronim": {
+                                                                "type": "string",
+                                                                "example": "BKPSDM"
+                                                            }
+                                                        },
+                                                        "type": "object"
                                                     }
                                                 },
                                                 "type": "object"
@@ -903,6 +928,16 @@
                                     "property_id"
                                 ],
                                 "properties": {
+                                    "opd_id": {
+                                        "description": "ID OPD (optional)",
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "kode_opd": {
+                                        "description": "Kode OPD sebagai alternatif opd_id",
+                                        "type": "string",
+                                        "example": "2622240000"
+                                    },
                                     "nama_aplikasi": {
                                         "type": "string",
                                         "example": "Aplikasi Dashboard Baru"
@@ -1076,6 +1111,14 @@
                         "application/json": {
                             "schema": {
                                 "properties": {
+                                    "opd_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "kode_opd": {
+                                        "type": "string",
+                                        "example": "2622240000"
+                                    },
                                     "nama_aplikasi": {
                                         "type": "string"
                                     },
@@ -1224,7 +1267,7 @@
                     "OPD Management"
                 ],
                 "summary": "Mendapatkan daftar semua OPD",
-                "description": "Mengambil daftar semua Organisasi Perangkat Daerah yang terdaftar",
+                "description": "Mengambil daftar semua Organisasi Perangkat Daerah (OPD)",
                 "operationId": "getOpdList",
                 "responses": {
                     "200": {
@@ -1232,49 +1275,46 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "properties": {
-                                            "id": {
-                                                "type": "integer",
-                                                "example": 1
-                                            },
-                                            "kode_opd": {
-                                                "type": "string",
-                                                "example": "DISKOMINFO"
-                                            },
-                                            "nama": {
-                                                "type": "string",
-                                                "example": "Dinas Komunikasi dan Informatika"
-                                            },
-                                            "akronim": {
-                                                "type": "string",
-                                                "example": "DISKOMINFO"
-                                            },
-                                            "created_at": {
-                                                "type": "string",
-                                                "format": "date-time"
-                                            },
-                                            "updated_at": {
-                                                "type": "string",
-                                                "format": "date-time"
-                                            }
-                                        },
-                                        "type": "object"
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Server Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
                                     "properties": {
-                                        "error": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
                                             "type": "string",
-                                            "example": "Internal server error"
+                                            "example": "Daftar OPD berhasil diambil"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "kode_opd": {
+                                                        "type": "string",
+                                                        "example": "2622240000"
+                                                    },
+                                                    "nama": {
+                                                        "type": "string",
+                                                        "example": "Badan Kepegawaian dan Pengembangan Sumber Daya Manusia"
+                                                    },
+                                                    "akronim": {
+                                                        "type": "string",
+                                                        "example": "BKPSDM"
+                                                    },
+                                                    "created_at": {
+                                                        "type": "string",
+                                                        "format": "date-time"
+                                                    },
+                                                    "updated_at": {
+                                                        "type": "string",
+                                                        "format": "date-time"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
                                         }
                                     },
                                     "type": "object"
@@ -1289,7 +1329,7 @@
                     "OPD Management"
                 ],
                 "summary": "Membuat OPD baru",
-                "description": "Menambahkan Organisasi Perangkat Daerah baru ke dalam sistem",
+                "description": "Menambahkan OPD baru ke dalam sistem",
                 "operationId": "createOpd",
                 "requestBody": {
                     "required": true,
@@ -1303,22 +1343,16 @@
                                 ],
                                 "properties": {
                                     "kode_opd": {
-                                        "description": "Kode unik OPD",
                                         "type": "string",
-                                        "maxLength": 50,
-                                        "example": "DISKOMINFO"
+                                        "example": "2622240001"
                                     },
                                     "nama": {
-                                        "description": "Nama lengkap OPD",
                                         "type": "string",
-                                        "maxLength": 255,
-                                        "example": "Dinas Komunikasi dan Informatika"
+                                        "example": "Dinas Pendidikan"
                                     },
                                     "akronim": {
-                                        "description": "Singkatan nama OPD",
                                         "type": "string",
-                                        "maxLength": 20,
-                                        "example": "DISKOMINFO"
+                                        "example": "DISDIK"
                                     }
                                 },
                                 "type": "object"
@@ -1333,66 +1367,15 @@
                             "application/json": {
                                 "schema": {
                                     "properties": {
-                                        "id": {
-                                            "type": "integer",
-                                            "example": 1
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
                                         },
-                                        "kode_opd": {
+                                        "message": {
                                             "type": "string",
-                                            "example": "DISKOMINFO"
+                                            "example": "OPD berhasil ditambahkan"
                                         },
-                                        "nama": {
-                                            "type": "string",
-                                            "example": "Dinas Komunikasi dan Informatika"
-                                        },
-                                        "akronim": {
-                                            "type": "string",
-                                            "example": "DISKOMINFO"
-                                        },
-                                        "created_at": {
-                                            "type": "string",
-                                            "format": "date-time"
-                                        },
-                                        "updated_at": {
-                                            "type": "string",
-                                            "format": "date-time"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "errors": {
-                                            "properties": {
-                                                "kode_opd": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "type": "string",
-                                                        "example": "The kode opd field is required."
-                                                    }
-                                                },
-                                                "nama": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "type": "string",
-                                                        "example": "The nama field is required."
-                                                    }
-                                                },
-                                                "akronim": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "type": "string",
-                                                        "example": "The akronim field is required."
-                                                    }
-                                                }
-                                            },
+                                        "data": {
                                             "type": "object"
                                         }
                                     },
@@ -1401,21 +1384,8 @@
                             }
                         }
                     },
-                    "500": {
-                        "description": "Server Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "error": {
-                                            "type": "string",
-                                            "example": "Internal server error"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                    "422": {
+                        "description": "Validation Error"
                     }
                 }
             }
@@ -1426,7 +1396,7 @@
                     "OPD Management"
                 ],
                 "summary": "Mendapatkan detail OPD",
-                "description": "Mengambil detail Organisasi Perangkat Daerah berdasarkan ID",
+                "description": "Mengambil detail OPD berdasarkan ID",
                 "operationId": "getOpdDetail",
                 "parameters": [
                     {
@@ -1435,8 +1405,7 @@
                         "description": "ID OPD",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 1
+                            "type": "integer"
                         }
                     }
                 ],
@@ -1447,164 +1416,14 @@
                             "application/json": {
                                 "schema": {
                                     "properties": {
-                                        "id": {
-                                            "type": "integer",
-                                            "example": 1
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
                                         },
-                                        "kode_opd": {
-                                            "type": "string",
-                                            "example": "DISKOMINFO"
+                                        "message": {
+                                            "type": "string"
                                         },
-                                        "nama": {
-                                            "type": "string",
-                                            "example": "Dinas Komunikasi dan Informatika"
-                                        },
-                                        "akronim": {
-                                            "type": "string",
-                                            "example": "DISKOMINFO"
-                                        },
-                                        "created_at": {
-                                            "type": "string",
-                                            "format": "date-time"
-                                        },
-                                        "updated_at": {
-                                            "type": "string",
-                                            "format": "date-time"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "OPD tidak ditemukan",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "error": {
-                                            "type": "string",
-                                            "example": "OPD not found"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Server Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "error": {
-                                            "type": "string",
-                                            "example": "Internal server error"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "put": {
-                "tags": [
-                    "OPD Management"
-                ],
-                "summary": "Update OPD",
-                "description": "Mengupdate data Organisasi Perangkat Daerah yang sudah ada",
-                "operationId": "updateOpd",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "ID OPD",
-                        "required": true,
-                        "schema": {
-                            "type": "integer",
-                            "example": 1
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "description": "Data OPD yang akan diupdate (semua field opsional)",
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "properties": {
-                                    "kode_opd": {
-                                        "description": "Kode unik OPD",
-                                        "type": "string",
-                                        "maxLength": 50,
-                                        "example": "DISKOMINFO_NEW"
-                                    },
-                                    "nama": {
-                                        "description": "Nama lengkap OPD",
-                                        "type": "string",
-                                        "maxLength": 255,
-                                        "example": "Dinas Komunikasi dan Informatika Kota"
-                                    },
-                                    "akronim": {
-                                        "description": "Singkatan nama OPD",
-                                        "type": "string",
-                                        "maxLength": 20,
-                                        "example": "DISKOMINFOKOTA"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "OPD berhasil diupdate",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "id": {
-                                            "type": "integer",
-                                            "example": 1
-                                        },
-                                        "kode_opd": {
-                                            "type": "string",
-                                            "example": "DISKOMINFO_NEW"
-                                        },
-                                        "nama": {
-                                            "type": "string",
-                                            "example": "Dinas Komunikasi dan Informatika Kota"
-                                        },
-                                        "akronim": {
-                                            "type": "string",
-                                            "example": "DISKOMINFOKOTA"
-                                        },
-                                        "created_at": {
-                                            "type": "string",
-                                            "format": "date-time"
-                                        },
-                                        "updated_at": {
-                                            "type": "string",
-                                            "format": "date-time"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "errors": {
+                                        "data": {
                                             "type": "object"
                                         }
                                     },
@@ -1614,36 +1433,52 @@
                         }
                     },
                     "404": {
-                        "description": "OPD tidak ditemukan",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "error": {
-                                            "type": "string",
-                                            "example": "OPD not found"
-                                        }
+                        "description": "OPD tidak ditemukan"
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "OPD Management"
+                ],
+                "summary": "Update OPD",
+                "description": "Mengupdate data OPD yang sudah ada",
+                "operationId": "updateOpd",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID OPD",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "kode_opd": {
+                                        "type": "string"
                                     },
-                                    "type": "object"
-                                }
+                                    "nama": {
+                                        "type": "string"
+                                    },
+                                    "akronim": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
                             }
                         }
-                    },
-                    "500": {
-                        "description": "Server Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "error": {
-                                            "type": "string",
-                                            "example": "Internal server error"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OPD berhasil diupdate"
                     }
                 }
             },
@@ -1652,68 +1487,51 @@
                     "OPD Management"
                 ],
                 "summary": "Hapus OPD",
-                "description": "Menghapus Organisasi Perangkat Daerah dari sistem",
+                "description": "Menghapus OPD dari sistem",
                 "operationId": "deleteOpd",
                 "parameters": [
                     {
                         "name": "id",
                         "in": "path",
-                        "description": "ID OPD yang akan dihapus",
+                        "description": "ID OPD",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 1
+                            "type": "integer"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OPD berhasil dihapus",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "message": {
-                                            "type": "string",
-                                            "example": "OPD deleted successfully"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
+                        "description": "OPD berhasil dihapus"
+                    }
+                }
+            }
+        },
+        "/opd/kode/{kode}": {
+            "get": {
+                "tags": [
+                    "OPD Management"
+                ],
+                "summary": "Mendapatkan OPD berdasarkan kode",
+                "description": "Mengambil data OPD berdasarkan kode_opd",
+                "operationId": "getOpdByKode",
+                "parameters": [
+                    {
+                        "name": "kode",
+                        "in": "path",
+                        "description": "Kode OPD",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
                         }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OPD ditemukan"
                     },
                     "404": {
-                        "description": "OPD tidak ditemukan",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "error": {
-                                            "type": "string",
-                                            "example": "OPD not found"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Server Error",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "error": {
-                                            "type": "string",
-                                            "example": "Cannot delete OPD that has associated applications"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "OPD tidak ditemukan"
                     }
                 }
             }
@@ -1723,9 +1541,9 @@
                 "tags": [
                     "OPD Management"
                 ],
-                "summary": "Mendapatkan aplikasi berdasarkan OPD",
-                "description": "Mengambil semua aplikasi yang terkait dengan OPD tertentu",
-                "operationId": "getAplikasiByOpd",
+                "summary": "Mendapatkan aplikasi milik OPD",
+                "description": "Mengambil daftar semua aplikasi yang dimiliki oleh OPD tertentu",
+                "operationId": "getOpdAplikasis",
                 "parameters": [
                     {
                         "name": "id",
@@ -1733,14 +1551,23 @@
                         "description": "ID OPD",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 1
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "active_only",
+                        "in": "query",
+                        "description": "Filter hanya aplikasi yang aktif",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Daftar aplikasi berhasil diambil",
+                        "description": "Berhasil mendapatkan daftar aplikasi OPD",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1751,30 +1578,38 @@
                                         },
                                         "message": {
                                             "type": "string",
-                                            "example": "Daftar aplikasi untuk OPD berhasil diambil"
+                                            "example": "Daftar aplikasi OPD berhasil diambil"
                                         },
                                         "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "properties": {
-                                                    "id": {
-                                                        "type": "integer"
+                                            "properties": {
+                                                "opd": {
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer"
+                                                        },
+                                                        "kode_opd": {
+                                                            "type": "string"
+                                                        },
+                                                        "nama": {
+                                                            "type": "string"
+                                                        },
+                                                        "akronim": {
+                                                            "type": "string"
+                                                        }
                                                     },
-                                                    "nama_aplikasi": {
-                                                        "type": "string"
-                                                    },
-                                                    "key_aplikasi": {
-                                                        "type": "string"
-                                                    },
-                                                    "property_id": {
-                                                        "type": "string"
-                                                    },
-                                                    "is_active": {
-                                                        "type": "boolean"
+                                                    "type": "object"
+                                                },
+                                                "aplikasis": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
                                                     }
                                                 },
-                                                "type": "object"
-                                            }
+                                                "total_aplikasi": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "type": "object"
                                         }
                                     },
                                     "type": "object"
@@ -1783,20 +1618,7 @@
                         }
                     },
                     "404": {
-                        "description": "OPD tidak ditemukan",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "error": {
-                                            "type": "string",
-                                            "example": "OPD not found"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "OPD tidak ditemukan"
                     }
                 }
             }
