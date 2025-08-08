@@ -26,6 +26,8 @@ Route::get('/aplikasi/key/{key}', [AplikasiController::class, 'getByKey'])->name
 Route::apiResource('/opd', OpdController::class);
 Route::get('/opd/kode/{kode}', [OpdController::class, 'getByKode'])->name('opd.getByKode'); // Tambahan route by kode
 Route::get('/opd/{id}/aplikasi', [OpdController::class, 'aplikasis'])->name('opd.aplikasis');
+// == PENAMBAHAN ROUTE BARU ==
+Route::get('/opd/kode/{kode}/aplikasi', [OpdController::class, 'aplikasisByKode'])->name('opd.aplikasisByKode');
 
 // ===================================================================
 // ROUTES ANALYTICS - ENDPOINT UTAMA (DIREKOMENDASIKAN)

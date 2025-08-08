@@ -1622,6 +1622,93 @@
                     }
                 }
             }
+        },
+        "/opd/kode/{kode}/aplikasi": {
+            "get": {
+                "tags": [
+                    "OPD Management"
+                ],
+                "summary": "Mendapatkan aplikasi milik OPD berdasarkan kode",
+                "description": "Mengambil daftar semua aplikasi yang dimiliki oleh OPD tertentu berdasarkan kode OPD",
+                "operationId": "getOpdAplikasisByKode",
+                "parameters": [
+                    {
+                        "name": "kode",
+                        "in": "path",
+                        "description": "Kode OPD",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "active_only",
+                        "in": "query",
+                        "description": "Filter hanya aplikasi yang aktif",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Berhasil mendapatkan daftar aplikasi OPD",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Daftar aplikasi OPD berhasil diambil"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "opd": {
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer"
+                                                        },
+                                                        "kode_opd": {
+                                                            "type": "string"
+                                                        },
+                                                        "nama": {
+                                                            "type": "string"
+                                                        },
+                                                        "akronim": {
+                                                            "type": "string"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "aplikasis": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "total_aplikasi": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "OPD tidak ditemukan"
+                    }
+                }
+            }
         }
     },
     "components": {

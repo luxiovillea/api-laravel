@@ -344,4 +344,89 @@ class OpdController extends Controller
             ]
         ]);
     }
+
+    /**
+     * @OA\Get(
+     *     path="/opd/kode/{kode}/aplikasi",
+     *     summary="Mendapatkan aplikasi milik OPD berdasarkan kode",
+     *     description="Mengambil daftar semua aplikasi yang dimiliki oleh OPD tertentu berdasarkan kode OPD",
+     *     operationId="getOpdAplikasisByKode",
+     *     tags={"OPD Management"},
+     *     @OA\Parameter(
+     *         name="kode",
+     *         in="path",
+     *         description="Kode OPD",
+     *         required=true,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Parameter(
+     *         name="active_only",
+     *         in="query",
+     *         description="Filter hanya aplikasi yang aktif",
+     *         required=false,
+     *         @OA\Schema(type="boolean", default=false)
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Berhasil mendapatkan daftar aplikasi OPD",
+     *         @OA\JsonContent(
+     *             type="object",
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Daftar aplikasi OPD berhasil diambil"),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="opd",
+     *                     type="object",
+     *                     @OA\Property(property="id", type="integer"),
+     *                     @OA\Property(property="kode_opd", type="string"),
+     *                     @OA\Property(property="nama", type="string"),
+     *                     @OA\Property(property="akronim", type="string")
+     *                 ),
+     *                 @OA\Property(
+     *                     property="aplikasis",
+     *                     type="array",
+     *                     @OA\Items(type="object")
+     *                 ),
+     *                 @OA\Property(property="total_aplikasi", type="integer")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="OPD tidak ditemukan"
+     *     )
+     * )
+     */
+    public function aplikasisByKode(Request $request, $kode)
+    {
+        $opd = Opd::where('kode_opd', $kode)->first();
+
+        if (!$opd) {
+            return response()->json([
+                'success' => false,
+                'message' => 'OPD dengan kode tersebut tidak ditemukan'
+            ], 404);
+        }
+
+        $query = $opd->aplikasis();
+        
+        if ($request->boolean('active_only')) {
+            $query->where('is_active', true);
+        }
+        
+        $aplikasis = $query->orderBy('nama_aplikasi')->get();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Daftar aplikasi OPD berhasil diambil',
+            'data' => [
+                'opd' => $opd,
+                'aplikasis' => $aplikasis,
+                'total_aplikasi' => $aplikasis->count()
+            ]
+        ]);
+    }
+
 }
