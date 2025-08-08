@@ -1542,7 +1542,7 @@
                     "OPD Management"
                 ],
                 "summary": "Mendapatkan aplikasi milik OPD",
-                "description": "Mengambil daftar semua aplikasi yang dimiliki oleh OPD tertentu",
+                "description": "Mengambil daftar semua aplikasi yang dimiliki oleh OPD tertentu.",
                 "operationId": "getOpdAplikasis",
                 "parameters": [
                     {
@@ -1557,11 +1557,10 @@
                     {
                         "name": "active_only",
                         "in": "query",
-                        "description": "Filter hanya aplikasi yang aktif",
+                        "description": "Filter aplikasi berdasarkan status aktif. Kirim 'true' untuk aktif, 'false' untuk tidak aktif. Kosongkan untuk semua.",
                         "required": false,
                         "schema": {
-                            "type": "boolean",
-                            "default": false
+                            "type": "boolean"
                         }
                     }
                 ],
@@ -1629,7 +1628,7 @@
                     "OPD Management"
                 ],
                 "summary": "Mendapatkan aplikasi milik OPD berdasarkan kode",
-                "description": "Mengambil daftar semua aplikasi yang dimiliki oleh OPD tertentu berdasarkan kode OPD",
+                "description": "Mengambil daftar semua aplikasi yang dimiliki oleh OPD tertentu berdasarkan kode OPD.",
                 "operationId": "getOpdAplikasisByKode",
                 "parameters": [
                     {
@@ -1644,11 +1643,10 @@
                     {
                         "name": "active_only",
                         "in": "query",
-                        "description": "Filter hanya aplikasi yang aktif",
+                        "description": "Filter aplikasi berdasarkan status aktif. Kirim 'true' untuk aktif, 'false' untuk tidak aktif. Kosongkan untuk semua.",
                         "required": false,
                         "schema": {
-                            "type": "boolean",
-                            "default": false
+                            "type": "boolean"
                         }
                     }
                 ],

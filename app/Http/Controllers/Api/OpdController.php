@@ -261,11 +261,11 @@ class OpdController extends Controller
         ]);
     }
 
-    /**
+  /**
      * @OA\Get(
      *     path="/opd/{id}/aplikasi",
      *     summary="Mendapatkan aplikasi milik OPD",
-     *     description="Mengambil daftar semua aplikasi yang dimiliki oleh OPD tertentu",
+     *     description="Mengambil daftar semua aplikasi yang dimiliki oleh OPD tertentu.",
      *     operationId="getOpdAplikasis",
      *     tags={"OPD Management"},
      *     @OA\Parameter(
@@ -278,9 +278,9 @@ class OpdController extends Controller
      *     @OA\Parameter(
      *         name="active_only",
      *         in="query",
-     *         description="Filter hanya aplikasi yang aktif",
+     *         description="Filter aplikasi berdasarkan status aktif. Kirim 'true' untuk aktif, 'false' untuk tidak aktif. Kosongkan untuk semua.",
      *         required=false,
-     *         @OA\Schema(type="boolean", default=false)
+     *         @OA\Schema(type="boolean")
      *     ),
      *     @OA\Response(
      *         response=200,
@@ -328,9 +328,13 @@ class OpdController extends Controller
 
         $query = $opd->aplikasis();
         
-        if ($request->boolean('active_only')) {
-            $query->where('is_active', true);
+        // --- LOGIKA BARU YANG DIPERBAIKI ---
+        // Cek jika parameter 'active_only' ada di request
+        if ($request->has('active_only')) {
+            // Terapkan filter berdasarkan nilai boolean dari parameter
+            $query->where('is_active', $request->boolean('active_only'));
         }
+        // --- AKHIR LOGIKA BARU ---
         
         $aplikasis = $query->orderBy('nama_aplikasi')->get();
 
@@ -349,7 +353,7 @@ class OpdController extends Controller
      * @OA\Get(
      *     path="/opd/kode/{kode}/aplikasi",
      *     summary="Mendapatkan aplikasi milik OPD berdasarkan kode",
-     *     description="Mengambil daftar semua aplikasi yang dimiliki oleh OPD tertentu berdasarkan kode OPD",
+     *     description="Mengambil daftar semua aplikasi yang dimiliki oleh OPD tertentu berdasarkan kode OPD.",
      *     operationId="getOpdAplikasisByKode",
      *     tags={"OPD Management"},
      *     @OA\Parameter(
@@ -362,9 +366,9 @@ class OpdController extends Controller
      *     @OA\Parameter(
      *         name="active_only",
      *         in="query",
-     *         description="Filter hanya aplikasi yang aktif",
+     *         description="Filter aplikasi berdasarkan status aktif. Kirim 'true' untuk aktif, 'false' untuk tidak aktif. Kosongkan untuk semua.",
      *         required=false,
-     *         @OA\Schema(type="boolean", default=false)
+     *         @OA\Schema(type="boolean")
      *     ),
      *     @OA\Response(
      *         response=200,
@@ -412,9 +416,13 @@ class OpdController extends Controller
 
         $query = $opd->aplikasis();
         
-        if ($request->boolean('active_only')) {
-            $query->where('is_active', true);
+        // --- LOGIKA BARU YANG DIPERBAIKI ---
+        // Cek jika parameter 'active_only' ada di request
+        if ($request->has('active_only')) {
+            // Terapkan filter berdasarkan nilai boolean dari parameter
+            $query->where('is_active', $request->boolean('active_only'));
         }
+        // --- AKHIR LOGIKA BARU ---
         
         $aplikasis = $query->orderBy('nama_aplikasi')->get();
 
@@ -428,5 +436,4 @@ class OpdController extends Controller
             ]
         ]);
     }
-
 }
