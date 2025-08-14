@@ -148,7 +148,7 @@ class AplikasiController extends Controller
             if ($opd) {
                 $validated['opd_id'] = $opd->id;
             }
-            unset($validated['kode_opd']); // Hapus kode_opd dari data yang akan disimpan
+            unset($validated['kode_opd']); 
         }
 
         // Set default values

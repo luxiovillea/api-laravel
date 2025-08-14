@@ -7,9 +7,6 @@ use App\Models\Aplikasi;
 
 class AplikasiSeeder extends Seeder
 {
-    /**
-     * Jalankan database seeds.
-     */
     public function run(): void
     {
         $aplikasiData = [

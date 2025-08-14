@@ -600,7 +600,6 @@ class AnalyticsController extends Controller
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
             
-            // Ambil aplikasi berdasarkan app_key atau gunakan yang pertama jika tidak ada
             $appKey = $request->query('app_key');
             if ($appKey) {
                 $appConfig = $this->getApplicationByKey($appKey);
@@ -647,7 +646,6 @@ class AnalyticsController extends Controller
         }
     }
 
-    // LEGACY FUNCTIONS - Tetap menggunakan env default untuk backward compatibility
     
     /**
      * @OA\Get(
@@ -976,7 +974,7 @@ class AnalyticsController extends Controller
     }
 
     // ===================================================================
-    // HELPER FUNCTIONS - Tetap sama seperti sebelumnya
+    // HELPER FUNCTIONS
     // ===================================================================
 
     private function getDateRangeFromPeriod(string $period, ?string $customStart, ?string $customEnd): array
