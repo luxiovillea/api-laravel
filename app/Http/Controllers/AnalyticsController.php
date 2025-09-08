@@ -289,9 +289,9 @@ class AnalyticsController extends Controller
                 $summaryData[] = [
                     'id' => $appIdCounter++,
                     'app_key' => $appKey,
-                    'db_id' => $appConfig['id'], // ID dari database
+                    'db_id' => $appConfig['id'], 
                     'name' => $appConfig['name'],
-                    'property_id' => $appConfig['property_id'], // Tampilkan property_id
+                    'property_id' => $appConfig['property_id'], 
                     'key_metrics' => [
                         'total_visitor' => (int)($totals['sessions'] ?? 0),
                         'active_user' => (int)($totals['activeUsers'] ?? 0),
