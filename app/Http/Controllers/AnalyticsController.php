@@ -340,7 +340,7 @@ class AnalyticsController extends Controller
      *     summary="Ringkasan Realtime per Aplikasi - Dynamic",
      *     description="Mengambil data jumlah pengguna aktif saat ini (realtime) untuk setiap aplikasi yang terdaftar di database.",
      *     operationId="getRealtimeSummary",
-     *     tags={"Dashboard", "Realtime"},
+     *     tags={"Dashboard"},
      *     @OA\Response(
      *         response=200,
      *         description="Sukses mendapatkan data realtime.",
@@ -566,7 +566,7 @@ class AnalyticsController extends Controller
      *     summary="Data Realtime Detail - Legacy dengan Support Dynamic Apps",
      *     description="Menyediakan data realtime yang terperinci, sekarang mendukung multiple property ID dari database.",
      *     operationId="fetchRealtimeData",
-     *     tags={"Legacy Reports", "Realtime"},
+     *     tags={"Legacy Reports"},
      *     @OA\Parameter(
      *         name="app_key",
      *         in="query",
