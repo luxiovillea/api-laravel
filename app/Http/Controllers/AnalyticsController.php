@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-
+ 
 use Illuminate\Http\Request;
 use Google\Client;
 use Google\Service\AnalyticsData;
@@ -48,9 +48,9 @@ use App\Http\Controllers\Api\OpdController;
  */
 class AnalyticsController extends Controller
 {
-    /**
-     * Mendapatkan konfigurasi aplikasi dari database
-     */
+    // ===================================================================
+    // Mendapatkan konfigurasi aplikasi dari database
+    // ===================================================================
     private function getApplicationsFromDatabase(): array
     {
         $applications = [];
@@ -91,9 +91,9 @@ class AnalyticsController extends Controller
         
     }
 
-    /**
-     * Menginisialisasi Google Client.
-     */
+    // ===================================================================
+    // Menginisialisasi Google Client.
+    // ===================================================================
     private function getGoogleClient(): Client
     {
         $credentialsJson = env('GOOGLE_CREDENTIALS_JSON');
@@ -236,7 +236,7 @@ class AnalyticsController extends Controller
             $appIdCounter = 1;
 
             foreach ($applications as $appKey => $appConfig) {
-                $propertyId = $appConfig['property_id']; // Gunakan property_id dari database
+                $propertyId = $appConfig['property_id']; 
                 
                 $appFilter = [
                     new FilterExpression(['filter' => new Filter([
@@ -331,7 +331,7 @@ class AnalyticsController extends Controller
     }
 
     // ===================================================================
-    // PENAMBAHAN BARU: FUNGSI UNTUK DATA REALTIME PER APLIKASI
+    // Penambahan Baru: Fungsi untuk data Realtime Per Aplikasi
     // ===================================================================
 
     /**
@@ -405,7 +405,9 @@ class AnalyticsController extends Controller
         }
     }
 
-    // LAPORAN DETAIL
+    // ===================================================================
+    // Laporan Detail
+    // ===================================================================
     
     /**
      * @OA\Get(
@@ -685,10 +687,9 @@ class AnalyticsController extends Controller
         try {
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
-            
-            // Support untuk app_key dinamis atau fallback ke env default
+
             $appKey = $request->query('app_key');
-            $propertyId = env('GA_PROPERTY_ID'); // Default
+            $propertyId = env('GA_PROPERTY_ID'); 
             $appName = 'Default Application';
             
             if ($appKey) {
@@ -905,9 +906,8 @@ class AnalyticsController extends Controller
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
             
-            // Support untuk app_key dinamis atau fallback ke env default
             $appKey = $request->query('app_key');
-            $propertyId = env('GA_PROPERTY_ID'); // Default
+            $propertyId = env('GA_PROPERTY_ID'); 
             $appName = 'Default Application';
             
             if ($appKey) {
