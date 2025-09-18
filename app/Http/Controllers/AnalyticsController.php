@@ -1122,4 +1122,5 @@ class AnalyticsController extends Controller
         }
         return $f;
     }
+
 }

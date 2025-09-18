@@ -934,7 +934,7 @@
                                     "kode_opd": {
                                         "description": "Kode OPD sebagai alternatif opd_id",
                                         "type": "string",
-                                        "example": "2622240000"
+                                        "example": "Diskominfo"
                                     },
                                     "nama_aplikasi": {
                                         "type": "string",

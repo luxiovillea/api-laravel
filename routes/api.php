@@ -28,7 +28,7 @@ Route::get('/opd/{id}/aplikasi', [OpdController::class, 'aplikasis'])->name('opd
 Route::get('/opd/kode/{kode}/aplikasi', [OpdController::class, 'aplikasisByKode'])->name('opd.aplikasisByKode');
 
 // ===================================================================
-// ROUTES ANALYTICS - ENDPOINT UTAMA (DIREKOMENDASIKAN)
+// ROUTES ANALYTICS - ENDPOINT UTAMA 
 // ===================================================================
 // Dashboard Summary - Sekarang dinamis berdasarkan database
 Route::get('/analytics/dashboard-summary', [AnalyticsController::class, 'getDashboardSummary']);
@@ -40,7 +40,7 @@ Route::get('/analytics/realtime-summary', [AnalyticsController::class, 'getRealt
 Route::get('/analytics/{app_key}/report', [AnalyticsController::class, 'generateReport'])->name('analytics.detail.report');
 
 // ===================================================================
-// ROUTES ANALYTICS - ENDPOINT LEGACY (UNTUK KOMPATIBILITAS)
+// ROUTES ANALYTICS - ENDPOINT Detailed Reports
 // ===================================================================
 // Sekarang mendukung parameter app_key untuk menggunakan aplikasi dari database
 Route::get('/analytics-data', [AnalyticsController::class, 'fetchRealtimeData']);
