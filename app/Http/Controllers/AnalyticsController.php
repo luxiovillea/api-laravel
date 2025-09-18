@@ -563,10 +563,10 @@ class AnalyticsController extends Controller
     /**
      * @OA\Get(
      *     path="/analytics-data",
-     *     summary="Data Realtime Detail - Legacy dengan Support Dynamic Apps",
+     *     summary="Data Realtime Detail Support Dynamic Apps",
      *     description="Menyediakan data realtime yang terperinci, sekarang mendukung multiple property ID dari database.",
      *     operationId="fetchRealtimeData",
-     *     tags={"Legacy Reports"},
+     *     tags={"Detailed Reports"},
      *     @OA\Parameter(
      *         name="app_key",
      *         in="query",
@@ -652,10 +652,10 @@ class AnalyticsController extends Controller
     /**
      * @OA\Get(
      *     path="/analytics-historical",
-     *     summary="Data Historis Komprehensif - Legacy",
+     *     summary="Data Historis Komprehensif",
      *     description="Menyediakan berbagai macam laporan historis dalam satu panggilan, menggunakan property ID default dari environment.",
      *     operationId="fetchHistoricalData",
-     *     tags={"Legacy Reports"},
+     *     tags={"Detailed Reports"},
      *     @OA\Parameter(
      *         name="period",
      *         in="query",
@@ -753,10 +753,10 @@ class AnalyticsController extends Controller
     /**
      * @OA\Get(
      *     path="/analytics/geography-report",
-     *     summary="Laporan Geografi - Legacy dengan Dynamic Support",
+     *     summary="Laporan Geografi",
      *     description="Menghasilkan laporan demografi pengguna berdasarkan negara dan kota.",
      *     operationId="fetchGeographyReport",
-     *     tags={"Legacy Reports"},
+     *     tags={"Detailed Reports"},
      *     @OA\Parameter(
      *         name="period", in="query", description="Periode waktu laporan.", required=false, @OA\Schema(type="string", default="last_7_days")
      *     ),
@@ -872,10 +872,10 @@ class AnalyticsController extends Controller
     /**
      * @OA\Get(
      *     path="/analytics/pages-report",
-     *     summary="Laporan Halaman & Layar - Legacy dengan Dynamic Support",
+     *     summary="Laporan Halaman & Layar",
      *     description="Menghasilkan laporan halaman yang paling banyak dilihat pengguna.",
      *     operationId="fetchPagesReport",
-     *     tags={"Legacy Reports"},
+     *     tags={"Detailed Reports"},
      *     @OA\Parameter(
      *         name="period", in="query", description="Periode waktu laporan.", required=false, @OA\Schema(type="string", default="last_7_days")
      *     ),

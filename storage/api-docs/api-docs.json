@@ -456,9 +456,9 @@
         "/analytics-data": {
             "get": {
                 "tags": [
-                    "Legacy Reports"
+                    "Detailed Reports"
                 ],
-                "summary": "Data Realtime Detail - Legacy dengan Support Dynamic Apps",
+                "summary": "Data Realtime Detail Support Dynamic Apps",
                 "description": "Menyediakan data realtime yang terperinci, sekarang mendukung multiple property ID dari database.",
                 "operationId": "fetchRealtimeData",
                 "parameters": [
@@ -553,9 +553,9 @@
         "/analytics-historical": {
             "get": {
                 "tags": [
-                    "Legacy Reports"
+                    "Detailed Reports"
                 ],
-                "summary": "Data Historis Komprehensif - Legacy",
+                "summary": "Data Historis Komprehensif",
                 "description": "Menyediakan berbagai macam laporan historis dalam satu panggilan, menggunakan property ID default dari environment.",
                 "operationId": "fetchHistoricalData",
                 "parameters": [
@@ -622,9 +622,9 @@
         "/analytics/geography-report": {
             "get": {
                 "tags": [
-                    "Legacy Reports"
+                    "Detailed Reports"
                 ],
-                "summary": "Laporan Geografi - Legacy dengan Dynamic Support",
+                "summary": "Laporan Geografi",
                 "description": "Menghasilkan laporan demografi pengguna berdasarkan negara dan kota.",
                 "operationId": "fetchGeographyReport",
                 "parameters": [
@@ -709,9 +709,9 @@
         "/analytics/pages-report": {
             "get": {
                 "tags": [
-                    "Legacy Reports"
+                    "Detailed Reports"
                 ],
-                "summary": "Laporan Halaman & Layar - Legacy dengan Dynamic Support",
+                "summary": "Laporan Halaman & Layar",
                 "description": "Menghasilkan laporan halaman yang paling banyak dilihat pengguna.",
                 "operationId": "fetchPagesReport",
                 "parameters": [
@@ -1745,8 +1745,8 @@
             "description": "Detail Reports"
         },
         {
-            "name": "Legacy Reports",
-            "description": "Legacy Reports"
+            "name": "Detailed Reports",
+            "description": "Detailed Reports"
         }
     ]
 }
