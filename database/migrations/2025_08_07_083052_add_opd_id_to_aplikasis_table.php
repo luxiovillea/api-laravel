@@ -8,13 +8,20 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
 
-    public function up(): void
+public function up(): void
     {
         Schema::table('aplikasi', function (Blueprint $table) {
+            // 1. Tambah kolom opd_id
             $table->unsignedBigInteger('opd_id')->nullable()->after('id');
-            $table->foreign('opd_id')->references('id')->on('opds')->onDelete('set null');
+
+            // 2. Definisikan foreign key ke tabel opds
+            $table->foreign('opd_id')
+                ->references('id')      // foreign key menunjuk ke kolom id di tabel opds
+                ->on('opds')
+                ->onDelete('set null'); // kalau data diopds dihapus, isi opd_id di tabel aplikasi jadi Null
         });
     }
+
 
     public function down(): void
     {

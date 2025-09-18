@@ -10,8 +10,6 @@ use App\Http\Controllers\Api\OpdController;
 | API Routes
 |--------------------------------------------------------------------------
 |
-| Berikut adalah route untuk API Google Analytics dan Management Aplikasi.
-|
 */
 
 // ===================================================================
