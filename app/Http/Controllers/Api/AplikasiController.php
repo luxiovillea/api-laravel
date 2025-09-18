@@ -96,7 +96,7 @@ class AplikasiController extends Controller
      *         @OA\JsonContent(
      *             required={"nama_aplikasi", "key_aplikasi", "property_id"},
      *             @OA\Property(property="opd_id", type="integer", example=1, description="ID OPD (optional)"),
-     *             @OA\Property(property="kode_opd", type="string", example="2622240000", description="Kode OPD sebagai alternatif opd_id"),
+     *             @OA\Property(property="kode_opd", type="string", example="Diskominfo", description="Kode OPD sebagai alternatif opd_id"),
      *             @OA\Property(property="nama_aplikasi", type="string", example="Aplikasi Dashboard Baru"),
      *             @OA\Property(property="key_aplikasi", type="string", example="dashboard_baru"),
      *             @OA\Property(property="property_id", type="string", example="987654321"),
