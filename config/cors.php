@@ -11,12 +11,11 @@ return [
     'allowed_methods' => ['*'],
     
     'allowed_origins' => [
-        'https://api-laravel-production-39d6.up.railway.app',
-        'https://analytics-dashboard-production-c30c9.up.railway.app', // Tambahkan ini
+        'https://analytics-dashboard-production-c30c9.up.railway.app',
         'http://localhost:8000',
         'http://127.0.0.1:8000',
         'http://localhost:3000',
-        '*' // Untuk development/testing - hapus di production
+        '*'
     ],
     
     'allowed_origins_patterns' => [

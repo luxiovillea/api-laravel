@@ -33,7 +33,7 @@ use App\Http\Controllers\Api\OpdController;
  *     )
  * )
  * @OA\Server(
- *     url="https://api-laravel-production-39d6.up.railway.app/api",
+ *     url="https://analytics-dashboard-production-c30c9.up.railway.app/api",
  *     description="Production API Server"
  * )
  * @OA\Server(

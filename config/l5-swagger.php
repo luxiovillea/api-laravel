@@ -271,7 +271,7 @@ return [
          * Constants which can be used in annotations
          */
         'constants' => [
-            'L5_SWAGGER_CONST_HOST' => env('L5_SWAGGER_CONST_HOST', 'https://api-laravel-production-39d6.up.railway.app/api'),
+            'L5_SWAGGER_CONST_HOST' => env('L5_SWAGGER_CONST_HOST', 'https://analytics-dashboard-production-c30c9.up.railway.app//api'),
         ],
     ],
 ];
