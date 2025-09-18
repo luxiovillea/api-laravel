@@ -254,8 +254,7 @@
         "/analytics/realtime-summary": {
             "get": {
                 "tags": [
-                    "Dashboard",
-                    "Realtime"
+                    "Dashboard"
                 ],
                 "summary": "Ringkasan Realtime per Aplikasi - Dynamic",
                 "description": "Mengambil data jumlah pengguna aktif saat ini (realtime) untuk setiap aplikasi yang terdaftar di database.",
@@ -457,8 +456,7 @@
         "/analytics-data": {
             "get": {
                 "tags": [
-                    "Legacy Reports",
-                    "Realtime"
+                    "Legacy Reports"
                 ],
                 "summary": "Data Realtime Detail - Legacy dengan Support Dynamic Apps",
                 "description": "Menyediakan data realtime yang terperinci, sekarang mendukung multiple property ID dari database.",
@@ -1741,10 +1739,6 @@
         {
             "name": "Dashboard",
             "description": "Dashboard"
-        },
-        {
-            "name": "Realtime",
-            "description": "Realtime"
         },
         {
             "name": "Detail Reports",
