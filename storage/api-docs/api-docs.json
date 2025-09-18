@@ -316,7 +316,7 @@
         "/analytics/{appKey}/report": {
             "get": {
                 "tags": [
-                    "Detail Reports"
+                    "Detail App Key Reports"
                 ],
                 "summary": "Laporan Detail per Aplikasi - Dynamic",
                 "description": "Menghasilkan laporan detail (seperti halaman populer atau geografi) untuk aplikasi tertentu dengan filter opsional. Data aplikasi diambil dari database.",
@@ -1741,8 +1741,8 @@
             "description": "Dashboard"
         },
         {
-            "name": "Detail Reports",
-            "description": "Detail Reports"
+            "name": "Detail App Key Reports",
+            "description": "Detail App Key Reports"
         },
         {
             "name": "Detailed Reports",

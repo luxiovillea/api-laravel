@@ -415,7 +415,7 @@ class AnalyticsController extends Controller
      *     summary="Laporan Detail per Aplikasi - Dynamic",
      *     description="Menghasilkan laporan detail (seperti halaman populer atau geografi) untuk aplikasi tertentu dengan filter opsional. Data aplikasi diambil dari database.",
      *     operationId="generateReport",
-     *     tags={"Detail Reports"},
+     *     tags={"Detail App Key Reports"},
      *     @OA\Parameter(
      *         name="appKey",
      *         in="path",
