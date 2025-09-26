@@ -67,22 +67,24 @@ class AplikasiController extends Controller
      *     )
      * )
      */
-    public function index(Request $request)
-    {
-        $query = Aplikasi::with('opd');
-        
-        if ($request->boolean('active_only')) {
-            $query->active();
-        }
-        
-        $aplikasi = $query->orderBy('id', 'asc')->get();
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Daftar aplikasi berhasil diambil',
-            'data' => $aplikasi
-        ]);
+public function index(Request $request)
+{
+    $query = Aplikasi::with('opd');
+    
+    if ($request->get('active_only') == 'true' || $request->get('active_only') == '1') {
+        $query->where('is_active', true);
+    } elseif ($request->get('active_only') == 'false' || $request->get('active_only') == '0') {
+        $query->where('is_active', false);
     }
+    
+    $aplikasi = $query->orderBy('id', 'asc')->get();
+    
+    return response()->json([
+        'success' => true,
+        'message' => 'Daftar aplikasi berhasil diambil',
+        'data' => $aplikasi
+    ]);
+}
 
     /**
      * @OA\Post(
