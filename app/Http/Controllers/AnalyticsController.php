@@ -697,6 +697,11 @@ class AnalyticsController extends Controller
                 if ($appConfig) {
                     $propertyId = $appConfig['property_id'];
                     $appName = $appConfig['name'];
+                } else {
+                    return response()->json([
+                        'error' => 'Invalid app_key provided',
+                        'message' => 'The specified app_key does not exist'
+                    ], 400);
                 }
             }
             
