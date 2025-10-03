@@ -1,7 +1,7 @@
 {
     "openapi": "3.0.0",
     "info": {
-        "title": "Google Analytics Data API Wrapper - Dynamic Applications",
+        "title": "Google Analytics Data API Wrapper",
         "description": "API untuk mengambil dan menyajikan data dari Google Analytics 4 (GA4) Data API. Mendukung multiple aplikasi yang dikonfigurasi secara dinamis melalui database.",
         "contact": {
             "name": "Support Team",
@@ -25,8 +25,8 @@
                 "tags": [
                     "Dashboard"
                 ],
-                "summary": "Ringkasan Dashboard Utama - Dynamic Applications",
-                "description": "Menghasilkan ringkasan data komprehensif untuk semua aplikasi yang terdaftar di database dalam satu periode waktu.",
+                "summary": "Ringkasan Dashboard Utama",
+                "description": "Menampilkan ringkasan keseluruhan performa aplikasi dalam periode tertentu (biasanya harian, mingguan, bulanan).",
                 "operationId": "getDashboardSummary",
                 "parameters": [
                     {
@@ -256,7 +256,7 @@
                 "tags": [
                     "Dashboard"
                 ],
-                "summary": "Ringkasan Realtime per Aplikasi - Dynamic",
+                "summary": "Ringkasan Realtime per Aplikasi",
                 "description": "Mengambil data jumlah pengguna aktif saat ini (realtime) untuk setiap aplikasi yang terdaftar di database.",
                 "operationId": "getRealtimeSummary",
                 "responses": {
@@ -318,7 +318,7 @@
                 "tags": [
                     "Detail App Key Reports"
                 ],
-                "summary": "Laporan Detail per Aplikasi - Dynamic",
+                "summary": "Laporan Detail per Aplikasi",
                 "description": "Menghasilkan laporan detail (seperti halaman populer atau geografi) untuk aplikasi tertentu dengan filter opsional. Data aplikasi diambil dari database.",
                 "operationId": "generateReport",
                 "parameters": [
@@ -458,8 +458,8 @@
                 "tags": [
                     "Detailed Reports"
                 ],
-                "summary": "Data Realtime Detail Support Dynamic Apps",
-                "description": "Menyediakan data realtime yang terperinci, sekarang mendukung multiple property ID dari database.",
+                "summary": "Data Realtime Detail",
+                "description": "Menampilkan data yang lebih spesifik dan realtime, menunjukkan siapa yang sedang aktif, di halaman mana, dari kota mana, dan device apa yang dipakai.",
                 "operationId": "fetchRealtimeData",
                 "parameters": [
                     {

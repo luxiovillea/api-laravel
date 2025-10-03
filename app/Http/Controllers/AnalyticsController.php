@@ -24,7 +24,7 @@ use App\Http\Controllers\Api\OpdController;
 
 /**
  * @OA\Info(
- *     title="Google Analytics Data API Wrapper - Dynamic Applications",
+ *     title="Google Analytics Data API Wrapper",
  *     version="2.0.0",
  *     description="API untuk mengambil dan menyajikan data dari Google Analytics 4 (GA4) Data API. Mendukung multiple aplikasi yang dikonfigurasi secara dinamis melalui database.",
  *     @OA\Contact(
@@ -113,8 +113,8 @@ class AnalyticsController extends Controller
     /**
      * @OA\Get(
      *     path="/analytics/dashboard-summary",
-     *     summary="Ringkasan Dashboard Utama - Dynamic Applications",
-     *     description="Menghasilkan ringkasan data komprehensif untuk semua aplikasi yang terdaftar di database dalam satu periode waktu.",
+     *     summary="Ringkasan Dashboard Utama",
+     *     description="Menampilkan ringkasan keseluruhan performa aplikasi dalam periode tertentu (biasanya harian, mingguan, bulanan).",
      *     operationId="getDashboardSummary",
      *     tags={"Dashboard"},
      *     @OA\Parameter(
@@ -337,7 +337,7 @@ class AnalyticsController extends Controller
     /**
      * @OA\Get(
      *     path="/analytics/realtime-summary",
-     *     summary="Ringkasan Realtime per Aplikasi - Dynamic",
+     *     summary="Ringkasan Realtime per Aplikasi",
      *     description="Mengambil data jumlah pengguna aktif saat ini (realtime) untuk setiap aplikasi yang terdaftar di database.",
      *     operationId="getRealtimeSummary",
      *     tags={"Dashboard"},
@@ -412,7 +412,7 @@ class AnalyticsController extends Controller
     /**
      * @OA\Get(
      *     path="/analytics/{appKey}/report",
-     *     summary="Laporan Detail per Aplikasi - Dynamic",
+     *     summary="Laporan Detail per Aplikasi",
      *     description="Menghasilkan laporan detail (seperti halaman populer atau geografi) untuk aplikasi tertentu dengan filter opsional. Data aplikasi diambil dari database.",
      *     operationId="generateReport",
      *     tags={"Detail App Key Reports"},
@@ -563,8 +563,8 @@ class AnalyticsController extends Controller
     /**
      * @OA\Get(
      *     path="/analytics-data",
-     *     summary="Data Realtime Detail Support Dynamic Apps",
-     *     description="Menyediakan data realtime yang terperinci, sekarang mendukung multiple property ID dari database.",
+     *     summary="Data Realtime Detail",
+     *     description="Menampilkan data yang lebih spesifik dan realtime, menunjukkan siapa yang sedang aktif, di halaman mana, dari kota mana, dan device apa yang dipakai.",
      *     operationId="fetchRealtimeData",
      *     tags={"Detailed Reports"},
      *     @OA\Parameter(
@@ -916,90 +916,90 @@ class AnalyticsController extends Controller
      *     @OA\Response(response=500, description="Error", @OA\JsonContent(ref="#/components/schemas/ErrorResponse"))
      * )
      */
-public function fetchPagesReport(Request $request)
-{
-    try {
-        $client = $this->getGoogleClient();
-        $analyticsData = new AnalyticsData($client);
-        
-        $appKey = $request->query('app_key');
-        
-        if ($appKey) {
-            // Jika app_key diberikan, WAJIB ditemukan di database
-            $appConfig = $this->getApplicationByKey($appKey);
-            if (!$appConfig) {
-                return response()->json([
-                    'error' => "Aplikasi dengan key '{$appKey}' tidak ditemukan atau tidak aktif."
-                ], 404);
-            }
-            $propertyId = $appConfig['property_id'];
-            $appName = $appConfig['name'];
-        } else {
-            // Jika app_key tidak diberikan, gunakan default dari environment
-            $propertyId = env('GA_PROPERTY_ID');
-            $appName = 'Default Application';
+    public function fetchPagesReport(Request $request)
+    {
+        try {
+            $client = $this->getGoogleClient();
+            $analyticsData = new AnalyticsData($client);
             
-            if (!$propertyId) {
-                return response()->json([
-                    'error' => 'Property ID tidak dikonfigurasi. Harap masukkan app_key yang valid atau set GA_PROPERTY_ID di environment.'
-                ], 400);
+            $appKey = $request->query('app_key');
+            
+            if ($appKey) {
+                // Jika app_key diberikan, WAJIB ditemukan di database
+                $appConfig = $this->getApplicationByKey($appKey);
+                if (!$appConfig) {
+                    return response()->json([
+                        'error' => "Aplikasi dengan key '{$appKey}' tidak ditemukan atau tidak aktif."
+                    ], 404);
+                }
+                $propertyId = $appConfig['property_id'];
+                $appName = $appConfig['name'];
+            } else {
+                // Jika app_key tidak diberikan, gunakan default dari environment
+                $propertyId = env('GA_PROPERTY_ID');
+                $appName = 'Default Application';
+                
+                if (!$propertyId) {
+                    return response()->json([
+                        'error' => 'Property ID tidak dikonfigurasi. Harap masukkan app_key yang valid atau set GA_PROPERTY_ID di environment.'
+                    ], 400);
+                }
             }
-        }
-        
-        $period = $request->query('period', 'last_7_days');
-        $startDate = $request->query('start_date');
-        $endDate = $request->query('end_date');
-        $dateRangeConfig = $this->getDateRangeFromPeriod($period, $startDate, $endDate);
-        $dimensions = ['pageTitle'];
-        $metrics = ['activeUsers','screenPageViews','averageSessionDuration','eventCount','conversions','totalRevenue'];
-        
-        $reportData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRangeConfig, $dimensions, $metrics, 'screenPageViews', 100);
+            
+            $period = $request->query('period', 'last_7_days');
+            $startDate = $request->query('start_date');
+            $endDate = $request->query('end_date');
+            $dateRangeConfig = $this->getDateRangeFromPeriod($period, $startDate, $endDate);
+            $dimensions = ['pageTitle'];
+            $metrics = ['activeUsers','screenPageViews','averageSessionDuration','eventCount','conversions','totalRevenue'];
+            
+            $reportData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRangeConfig, $dimensions, $metrics, 'screenPageViews', 100);
 
-        $formattedRows = [];
-        if (!empty($reportData['rows'])) {
-            foreach ($reportData['rows'] as $row) {
-                $activeUsers = (float)($row['activeUsers'] ?? 0);
-                $screenPageViews = (float)($row['screenPageViews'] ?? 0);
-                $formattedRows[] = [
-                    'pageTitle' => $row['pageTitle'],
-                    'activeUsers' => (int)$activeUsers,
-                    'viewsPerUser' => $activeUsers > 0 ? round($screenPageViews / $activeUsers, 2) : 0,
-                    'averageSessionDurationFormatted' => $this->formatDuration((float)($row['averageSessionDuration'] ?? 0)),
-                    'eventCount' => (int)($row['eventCount'] ?? 0),
-                    'conversions' => (int)($row['conversions'] ?? 0),
-                    'totalRevenue' => round((float)($row['totalRevenue'] ?? 0), 2),
-                ];
+            $formattedRows = [];
+            if (!empty($reportData['rows'])) {
+                foreach ($reportData['rows'] as $row) {
+                    $activeUsers = (float)($row['activeUsers'] ?? 0);
+                    $screenPageViews = (float)($row['screenPageViews'] ?? 0);
+                    $formattedRows[] = [
+                        'pageTitle' => $row['pageTitle'],
+                        'activeUsers' => (int)$activeUsers,
+                        'viewsPerUser' => $activeUsers > 0 ? round($screenPageViews / $activeUsers, 2) : 0,
+                        'averageSessionDurationFormatted' => $this->formatDuration((float)($row['averageSessionDuration'] ?? 0)),
+                        'eventCount' => (int)($row['eventCount'] ?? 0),
+                        'conversions' => (int)($row['conversions'] ?? 0),
+                        'totalRevenue' => round((float)($row['totalRevenue'] ?? 0), 2),
+                    ];
+                }
             }
+            
+            $totals = $reportData['totals'] ?? [];
+            $totalActiveUsers = (float)($totals['activeUsers'] ?? 0);
+            $totalScreenPageViews = (float)($totals['screenPageViews'] ?? 0);
+            $formattedTotals = [
+                'activeUsers' => (int)$totalActiveUsers,
+                'viewsPerUser' => $totalActiveUsers > 0 ? round($totalScreenPageViews / $totalActiveUsers, 2) : 0,
+                'averageSessionDurationFormatted' => $this->formatDuration((float)($totals['averageSessionDuration'] ?? 0)),
+                'eventCount' => (int)($totals['eventCount'] ?? 0),
+                'conversions' => (int)($totals['conversions'] ?? 0),
+                'totalRevenue' => round((float)($totals['totalRevenue'] ?? 0), 2),
+            ];
+
+            return response()->json([
+                'metadata' => [
+                    'period' => $period,
+                    'dateRange' => $dateRangeConfig,
+                    'app_key' => $appKey,
+                    'app_name' => $appName,
+                    'property_id' => $propertyId,
+                ],
+                'totals' => $formattedTotals,
+                'rows' => $formattedRows
+            ]);
+
+        } catch (Exception $e) {
+            return $this->handleApiException('Laporan Halaman & Layar', $e);
         }
-        
-        $totals = $reportData['totals'] ?? [];
-        $totalActiveUsers = (float)($totals['activeUsers'] ?? 0);
-        $totalScreenPageViews = (float)($totals['screenPageViews'] ?? 0);
-        $formattedTotals = [
-            'activeUsers' => (int)$totalActiveUsers,
-            'viewsPerUser' => $totalActiveUsers > 0 ? round($totalScreenPageViews / $totalActiveUsers, 2) : 0,
-            'averageSessionDurationFormatted' => $this->formatDuration((float)($totals['averageSessionDuration'] ?? 0)),
-            'eventCount' => (int)($totals['eventCount'] ?? 0),
-            'conversions' => (int)($totals['conversions'] ?? 0),
-            'totalRevenue' => round((float)($totals['totalRevenue'] ?? 0), 2),
-        ];
-
-        return response()->json([
-            'metadata' => [
-                'period' => $period,
-                'dateRange' => $dateRangeConfig,
-                'app_key' => $appKey,
-                'app_name' => $appName,
-                'property_id' => $propertyId,
-            ],
-            'totals' => $formattedTotals,
-            'rows' => $formattedRows
-        ]);
-
-    } catch (Exception $e) {
-        return $this->handleApiException('Laporan Halaman & Layar', $e);
     }
-}
 
     // ===================================================================
     // HELPER FUNCTIONS
