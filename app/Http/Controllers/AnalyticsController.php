@@ -33,7 +33,7 @@ use App\Http\Controllers\Api\OpdController;
  *     )
  * )
  * @OA\Server(
- *     url="https://analytics-dashboard-production-c30c9.up.railway.app/api",
+ *     url="https://https://analytics-dashboard.up.railway.app//api",
  *     description="Production API Server"
  * )
  * @OA\Server(
