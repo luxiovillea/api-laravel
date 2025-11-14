@@ -67,24 +67,24 @@ class AplikasiController extends Controller
      *     )
      * )
      */
-public function index(Request $request)
-{
-    $query = Aplikasi::with('opd');
-    
-    if ($request->get('active_only') == 'true' || $request->get('active_only') == '1') {
-        $query->where('is_active', true);
-    } elseif ($request->get('active_only') == 'false' || $request->get('active_only') == '0') {
-        $query->where('is_active', false);
+    public function index(Request $request)
+    {
+        $query = Aplikasi::with('opd'); // load relasi opd
+        
+        if ($request->get('active_only') == 'true' || $request->get('active_only') == '1') {
+            $query->where('is_active', true);
+        } elseif ($request->get('active_only') == 'false' || $request->get('active_only') == '0') {
+            $query->where('is_active', false);
+        }
+        
+        $aplikasi = $query->orderBy('id', 'asc')->get(); // ambil data
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Daftar aplikasi berhasil diambil',
+            'data' => $aplikasi
+        ]);
     }
-    
-    $aplikasi = $query->orderBy('id', 'asc')->get();
-    
-    return response()->json([
-        'success' => true,
-        'message' => 'Daftar aplikasi berhasil diambil',
-        'data' => $aplikasi
-    ]);
-}
 
     /**
      * @OA\Post(
@@ -144,13 +144,13 @@ public function index(Request $request)
             'konfigurasi_tambahan' => 'nullable|array',
         ]);
 
-        // Jika kode_opd dikirim, cari opd_id berdasarkan kode_opd
+        // jika user kirim kode_opd → convert ke opd_id
         if (isset($validated['kode_opd']) && !isset($validated['opd_id'])) {
             $opd = Opd::where('kode_opd', $validated['kode_opd'])->first();
             if ($opd) {
-                $validated['opd_id'] = $opd->id;
+                $validated['opd_id'] = $opd->id; // ambil ID-nya
             }
-            unset($validated['kode_opd']); 
+            unset($validated['kode_opd']); // hapus agar tidak masuk DB
         }
 
         // Set default values
@@ -281,7 +281,7 @@ public function index(Request $request)
             if ($opd) {
                 $validated['opd_id'] = $opd->id;
             }
-            unset($validated['kode_opd']); // Hapus kode_opd dari data yang akan disimpan
+            unset($validated['kode_opd']);
         }
 
         $aplikasi->update($validated);
@@ -363,8 +363,10 @@ public function index(Request $request)
      */
     public function getByKey($key)
     {
+        // Cari data aplikasi + relasi opd berdasarkan kolom key_aplikasi
         $aplikasi = Aplikasi::with('opd')->where('key_aplikasi', $key)->first();
 
+        // Respons gagal
         if (!$aplikasi) {
             return response()->json([
                 'success' => false,
@@ -372,6 +374,7 @@ public function index(Request $request)
             ], 404);
         }
 
+        // Respons sukses
         return response()->json([
             'success' => true,
             'message' => 'Aplikasi berhasil ditemukan',

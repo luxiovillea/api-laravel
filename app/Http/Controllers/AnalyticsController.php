@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Aplikasi; // Import model Aplikasi
 use App\Http\Controllers\Api\OpdController;
 
+// Annotation OAInfo ini adalah metadata untuk Swagger UI
 /**
  * @OA\Info(
  *     title="Google Analytics Data API Wrapper",
@@ -49,8 +50,10 @@ use App\Http\Controllers\Api\OpdController;
 class AnalyticsController extends Controller
 {
     // ===================================================================
-    // Mendapatkan konfigurasi aplikasi dari database
+    // PRIVATE HELPER FUNCTION #1: GET APPLICATIONS FROM DATABASE
     // ===================================================================
+    // Fungsi ini mengambil semua konfigurasi aplikasi yang aktif dari database
+    // Setiap aplikasi memiliki property ID GA4 dan filter path tersendiri
     private function getApplicationsFromDatabase(): array
     {
         $applications = [];
@@ -69,9 +72,11 @@ class AnalyticsController extends Controller
         return $applications;
     }
 
-    /**
-     * Mendapatkan konfigurasi aplikasi spesifik berdasarkan key
-     */
+    // ====================================================================
+    // PRIVATE HELPER FUNCTION #2: GET APPLICATION BY KEY
+    // ====================================================================
+    // Fungsi ini mengambil konfigurasi SATU aplikasi spesifik berdasarkan key
+    // Dipakai saat endpoint menerima parameter appKey di URL
     private function getApplicationByKey(string $appKey): ?array
     {
         $aplikasi = Aplikasi::where('key_aplikasi', $appKey)->active()->first();
@@ -92,8 +97,10 @@ class AnalyticsController extends Controller
     }
 
     // ===================================================================
-    // Menginisialisasi Google Client.
+    // PRIVATE HELPER FUNCTION #3: GET GOOGLE CLIENT (AUTENTIKASI)
     // ===================================================================
+    // Fungsi ini membuat dan mengkonfigurasi Google Client untuk autentikasi
+    // ke Google Analytics Data API menggunakan Service Account credentials
     private function getGoogleClient(): Client
     {
         $credentialsJson = env('GOOGLE_CREDENTIALS_JSON');
@@ -107,7 +114,7 @@ class AnalyticsController extends Controller
     }
 
     // ===================================================================
-    // FUNGSI UTAMA 1: DASHBOARD SUMMARY (LAPORAN STANDAR/HISTORIS)
+    // ENDPOINT - DASHBOARD SUMMARY (LAPORAN STANDAR/HISTORIS)
     // ===================================================================
 
     /**
@@ -213,12 +220,20 @@ class AnalyticsController extends Controller
     public function getDashboardSummary(Request $request)
     {
         try {
+            // Autentikasi ke Google API
             $client = $this->getGoogleClient();
+            // Buat instance AnalyticsData service
+            // Service ini adalah interface untuk berkomunikasi dengan GA4 API
             $analyticsData = new AnalyticsData($client);
+            // Parse rentang tanggal dari request
+            // Fungsi helper ini akan return array ['start_date' => '...', 'end_date' => '...']
             $dateRange = $this->getDateRangeFromPeriod_new($request);
+            // Ambil semua aplikasi dari database
             $applications = $this->getApplicationsFromDatabase();
             
+            // Validasi - jika tidak ada aplikasi aktif
             if (empty($applications)) {
+                // Return response dengan data kosong
                 return response()->json([
                     'data' => [
                         'applications' => [],
@@ -232,12 +247,16 @@ class AnalyticsController extends Controller
                 ]);
             }
 
+            // Inisialisasi array untuk menampung summary data
             $summaryData = [];
+            // Counter untuk ID auto increment (bukan dari database)
             $appIdCounter = 1;
 
+            // Loop setiap aplikasi
             foreach ($applications as $appKey => $appConfig) {
+                // Ambil Property ID GA4 dari konfigurasi aplikasi
                 $propertyId = $appConfig['property_id']; 
-                
+                // Buat filter untuk aplikasi ini
                 $appFilter = [
                     new FilterExpression(['filter' => new Filter([
                         'field_name' => 'pagePath',
@@ -259,7 +278,7 @@ class AnalyticsController extends Controller
 
                 $totals = $mainMetricsReport['totals'] ?? [];
                 
-                $topCity = 'N/A';
+                $topCity = 'N/A';   //  "not applicable" atau "tidak berlaku"
                 $topCountry = 'N/A';
                 if (!empty($geoReport['rows'])) {
                     foreach ($geoReport['rows'] as $geoRow) {
@@ -286,28 +305,29 @@ class AnalyticsController extends Controller
                     }
                 }
 
+                // Susun summary data untuk aplikasi ini
                 $summaryData[] = [
-                    'id' => $appIdCounter++,
-                    'app_key' => $appKey,
-                    'db_id' => $appConfig['id'], 
-                    'name' => $appConfig['name'],
-                    'property_id' => $appConfig['property_id'], 
+                    'id' => $appIdCounter++,              // ID auto increment
+                    'app_key' => $appKey,                 // Key aplikasi
+                    'db_id' => $appConfig['id'],          // ID dari database
+                    'name' => $appConfig['name'],         // Nama aplikasi
+                    'property_id' => $appConfig['property_id'],  // Property ID GA4
                     'key_metrics' => [
                         'total_visitor' => (int)($totals['sessions'] ?? 0),
                         'active_user' => (int)($totals['activeUsers'] ?? 0),
                         'new_user' => (int)($totals['newUsers'] ?? 0),
                         'page_views' => (int)($totals['screenPageViews'] ?? 0),
                     ],
-                    'engagement' => [
+                    'engagement' => [  // Data ini menunjukkan seberapa aktif dan lama pengunjung berinteraksi di situs.
                         'engagement_rate' => round(((float)($totals['engagementRate'] ?? 0)) * 100, 2) . '%',
                         'average_session_duration' => $this->formatDuration((float)($totals['averageSessionDuration'] ?? 0)),
                     ],
-                    'top_sources' => [
+                    'top_sources' => [  // Nampilin asal pengunjung paling banyak.
                         'geography' => [ 'city' => $topCity, 'country' => $topCountry, ],
                         'traffic_channel' => $topTrafficChannel,
                     ],
-                    'business' => [ 'conversions' => (int)($totals['conversions'] ?? 0), ],
-                    'technology_overview' => $formattedTechData,
+                    'business' => [ 'conversions' => (int)($totals['conversions'] ?? 0), ], // Nunjukin berapa banyak tindakan penting yang dilakukan pengguna
+                    'technology_overview' => $formattedTechData, // Berisi daftar data teknologi yang digunakan pengunjung
                 ];
             }
 
@@ -325,13 +345,14 @@ class AnalyticsController extends Controller
 
             return response()->json($finalResponse);
 
+        // Jika terjadi error, tangani dengan handleApiException
         } catch (Exception $e) {
             return $this->handleApiException("Ringkasan Dashboard", $e);
         }
     }
 
     // ===================================================================
-    // Penambahan Baru: Fungsi untuk data Realtime Per Aplikasi
+    // ENDPOINT - REALTIME SUMMARY (DATA REALTIME PER APLIKASI)
     // ===================================================================
 
     /**
@@ -370,14 +391,19 @@ class AnalyticsController extends Controller
     public function getRealtimeSummary()
     {
         try {
+            // Autentikasi
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
+            // Ambil semua aplikasi dari database
             $applications = $this->getApplicationsFromDatabase();
+            // Inisialisasi array untuk data realtime
             $realtimeData = [];
 
+            // Loop setiap aplikasi
             foreach ($applications as $appKey => $appConfig) {
                 $propertyId = $appConfig['property_id']; //Gunakan property_id dari database
                 
+                // Buat filter untuk realtime report
                 $realtimeFilter = new FilterExpression([
                     'filter' => new Filter([
                         'field_name' => 'unifiedScreenName',
@@ -385,10 +411,13 @@ class AnalyticsController extends Controller
                     ])
                 ]);
 
+                // Panggil API Realtime
                 $report = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['unifiedScreenName'], ['activeUsers'], $realtimeFilter);
                 
+                // Hitung total active users dari rows
                 $totalActiveUsers = collect($report['rows'] ?? [])->sum('activeUsers');
 
+                // Tambahkan ke array realtime data
                 $realtimeData[] = [
                     'app_key' => $appKey,
                     'db_id' => $appConfig['id'],
@@ -406,7 +435,7 @@ class AnalyticsController extends Controller
     }
 
     // ===================================================================
-    // Laporan Detail
+    // ENDPOINT - GENERATE REPORT (LAPORAN DETAIL PER APP KEY)
     // ===================================================================
     
     /**
@@ -495,38 +524,47 @@ class AnalyticsController extends Controller
     public function generateReport(Request $request, string $appKey)
     {
         try {
+            // Cari aplikasi berdasarkan appKey
             $appConfig = $this->getApplicationByKey($appKey);
             
+            // Validasi - jika aplikasi tidak ditemukan, return 404
             if (!$appConfig) {
                 return response()->json(['error' => "Aplikasi '{$appKey}' tidak ditemukan atau tidak aktif."], 404);
             }
 
+            // Autentikasi
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
+            // Ambil property ID dari config
             $propertyId = $appConfig['property_id']; // Gunakan property_id dari database
+            // Ambil tipe laporan dari query parameter (default: 'pages')
             $reportType = $request->query('type', 'pages');
+            // Parse date range
             $dateRangeConfig = $this->getDateRangeFromPeriod_new($request);
+            // Build filters (filter aplikasi + filter tambahan dari query)
             $filters = $this->buildAdvancedFilters($request, $appConfig);
-            
+            // Tentukan dimensi dan metrik berdasarkan tipe laporan
             switch ($reportType) {
                 case 'pages':
                     $dimensions = ['pageTitle', 'pagePath'];
                     $metrics = ['activeUsers', 'screenPageViews', 'averageSessionDuration', 'eventCount', 'conversions', 'totalRevenue'];
-                    $orderBy = 'screenPageViews';
+                    $orderBy = 'screenPageViews'; // Sort by page views
                     break;
                 case 'geo':
                     $dimensions = ['country', 'city'];
                     $metrics = ['activeUsers', 'newUsers', 'sessions', 'engagementRate', 'conversions', 'totalRevenue'];
-                    $orderBy = 'activeUsers';
+                    $orderBy = 'activeUsers'; // Sort by active users
                     break;
                 default:
-                     return response()->json(['error' => "Tipe laporan '{$reportType}' tidak valid. Gunakan 'pages' atau 'geo'."], 400);
+                    // Jika tipe tidak valid, return error 400
+                    return response()->json(['error' => "Tipe laporan '{$reportType}' tidak valid. Gunakan 'pages' atau 'geo'."], 400);
             }
-            
+            // Jalankan report ke GA4 API
             $reportData = $this->runAdvancedHistoricalReport($analyticsData, $propertyId, $dateRangeConfig, $dimensions, $metrics, $orderBy, $filters);
-
+            // Format totals (aggregasi)
             $rawTotals = $reportData['totals'] ?? [];
             $formattedTotals = [];
+            // Format berbeda untuk tipe 'pages'
             if ($reportType === 'pages') {
                 $totalActiveUsers = (float)($rawTotals['activeUsers'] ?? 0);
                 $totalScreenPageViews = (float)($rawTotals['screenPageViews'] ?? 0);
@@ -539,9 +577,11 @@ class AnalyticsController extends Controller
                     'totalRevenue' => round((float)($rawTotals['totalRevenue'] ?? 0), 2),
                 ];
             } else { 
+                // Untuk tipe 'geo' atau lainnya, gunakan format standard
                 $formattedTotals = $this->formatTotals_new($rawTotals);
             }
 
+            // Return response
             return response()->json([
                 'metadata' => [
                     'application' => $appConfig['name'],
@@ -599,34 +639,45 @@ class AnalyticsController extends Controller
     public function fetchRealtimeData(Request $request)
     {
         try {
+            // Autentikasi
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
-            
+            // Tentukan aplikasi yang akan diambil datanya
             $appKey = $request->query('app_key');
             if ($appKey) {
+                // Jika app_key diberikan, cari aplikasi tersebut
                 $appConfig = $this->getApplicationByKey($appKey);
                 if (!$appConfig) {
                     return response()->json(['error' => "Aplikasi '{$appKey}' tidak ditemukan atau tidak aktif."], 404);
                 }
             } else {
+                // Jika tidak diberikan, ambil aplikasi pertama yang aktif
                 $applications = $this->getApplicationsFromDatabase();
                 if (empty($applications)) {
                     return response()->json(['error' => "Tidak ada aplikasi aktif yang ditemukan."], 404);
                 }
+                // array_key_first() mengambil key pertama dari array
                 $appKey = array_key_first($applications);
                 $appConfig = $applications[$appKey];
             }
             
+            // Ambil property ID
             $propertyId = $appConfig['property_id'];
 
+            // Jalankan MULTIPLE REALTIME REPORTS
+            // Report 1: Users by Page (breakdown per halaman dan device)
             $usersByPage = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['unifiedScreenName', 'deviceCategory'], ['activeUsers']);
+            // Report 2: Users by Location (breakdown per negara dan kota)
             $usersByLocation = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['country', 'city'], ['activeUsers']);
+            // Report 3: Users by Platform (breakdown per platform: web, iOS, Android)
             $usersByPlatform = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['platform'], ['activeUsers']);
+            // Report 4: Users by Audience (breakdown per audience segment yang sudah didefinisikan di GA4)
             $usersByAudience = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['audienceName'], ['activeUsers']);
+            // Report 5: Activity Feed (aktivitas per menit terakhir)
             $activityFeed = $this->runRealtimeReportHelper($analyticsData, $propertyId, ['minutesAgo', 'unifiedScreenName', 'city'], ['activeUsers']);
-            
+            // Hitung total active users
             $totalActiveUsers = collect($usersByLocation['rows'] ?? [])->sum('activeUsers');
-            
+            // Return response dengan semua breakdown
             return response()->json([
                 'totalActiveUsers' => (int) $totalActiveUsers,
                 'metadata' => [
@@ -685,19 +736,24 @@ class AnalyticsController extends Controller
     public function fetchHistoricalData(Request $request)
     {
         try {
+            // Autentikasi ke Google API
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
 
+            // Ambil app_key dari query string, default pakai GA_PROPERTY_ID dari env
             $appKey = $request->query('app_key');
             $propertyId = env('GA_PROPERTY_ID'); 
             $appName = 'Default Application';
             
+            // Jika appKey diberikan, cari di database aplikasi yang sesuai
             if ($appKey) {
                 $appConfig = $this->getApplicationByKey($appKey);
+                // Jika ditemukan, update propertyId dan appName sesuai aplikasi
                 if ($appConfig) {
                     $propertyId = $appConfig['property_id'];
                     $appName = $appConfig['name'];
                 } else {
+                    // Jika key salah, return error 400
                     return response()->json([
                         'error' => 'Invalid app_key provided',
                         'message' => 'The specified app_key does not exist'
@@ -705,11 +761,13 @@ class AnalyticsController extends Controller
                 }
             }
             
+            // Definisi periode yang diizinkan dan mapping ke format Google Analytics API
             $allowedPeriods = ['7days' => '7daysAgo', '28days' => '28daysAgo', '90days' => '90daysAgo'];
             $period = $request->query('period', '28days');
             $startDate = $allowedPeriods[$period] ?? $allowedPeriods['28days'];
             $dateRange = ['start_date' => $startDate, 'end_date' => 'today'];
             
+            // Jalankan beberapa laporan historis GA4, masing-masing dengan dimensi dan metrik berbeda
             $pageData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['pageTitle', 'pagePath'], ['screenPageViews', 'sessions', 'engagementRate', 'conversions'], 'screenPageViews');
             $geoData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['country', 'city'], ['activeUsers', 'newUsers', 'sessions', 'engagementRate', 'conversions'], 'activeUsers');
             $trafficSourceData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['sessionSourceMedium'], ['sessions', 'activeUsers', 'newUsers', 'engagementRate', 'conversions'], 'sessions');
@@ -719,6 +777,7 @@ class AnalyticsController extends Controller
             $landingPageData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRange, ['landingPage'], ['sessions', 'newUsers', 'engagementRate'], 'sessions');
             $retentionData = $this->runCohortReport($analyticsData, $propertyId);
             
+            // Ringkasan total metrik yang diambil dari geoData
             $summaryTotals = $geoData['totals'];
             $summary = [
                 'activeUsers' => (int) ($summaryTotals['activeUsers'] ?? 0), 
@@ -730,6 +789,7 @@ class AnalyticsController extends Controller
                 'averageSessionDuration' => gmdate("i:s", (int)($pageData['totals']['averageSessionDuration'] ?? 0)),
             ];
             
+            // Return hasil response dalam JSON yang berisi ringkasan, laporan detail, dan metadata
             return response()->json([
                 'summary' => $summary, 
                 'reports' => [
@@ -789,13 +849,13 @@ class AnalyticsController extends Controller
  public function fetchGeographyReport(Request $request)
     {
         try {
+            // Autentikasi ke Google API
             $client = $this->getGoogleClient();
             $analyticsData = new AnalyticsData($client);
-            
+            // Ambil app_key dari query string, default pakai GA_PROPERTY_ID dari env
             $appKey = $request->query('app_key');
             
             if ($appKey) {
-                // Jika app_key diberikan, WAJIB ditemukan di database
                 $appConfig = $this->getApplicationByKey($appKey);
                 if (!$appConfig) {
                     return response()->json([
@@ -820,8 +880,10 @@ class AnalyticsController extends Controller
             $startDate = $request->query('start_date');
             $endDate = $request->query('end_date');
 
+            // Menghasilkan rentang tanggal dari periode dan tanggal custom jika diberikan
             $dateRangeConfig = $this->getDateRangeFromPeriod($period, $startDate, $endDate);
 
+            // Tentukan dimensi dan metrik laporan geografi
             $dimensions = ['country', 'city'];
             $metrics = [
                 'activeUsers',
@@ -832,6 +894,7 @@ class AnalyticsController extends Controller
                 'totalRevenue'
             ];
             
+            // Jalankan laporan historis dengan sorting berdasarkan activeUsers, limit max 250 rows
             $reportData = $this->runHistoricalReport(
                 $analyticsData, 
                 $propertyId, 
@@ -842,6 +905,7 @@ class AnalyticsController extends Controller
                 250
             );
 
+            // Format data rows untuk response dengan casting tipe data yang tepat
             $formattedRows = [];
             if (!empty($reportData['rows'])) {
                 foreach ($reportData['rows'] as $row) {
@@ -858,6 +922,7 @@ class AnalyticsController extends Controller
                 }
             }
             
+            // Format total metrik untuk ringkasan laporan
             $totals = $reportData['totals'] ?? [];
             $formattedTotals = [
                 'activeUsers' => (int)($totals['activeUsers'] ?? 0),
@@ -868,6 +933,7 @@ class AnalyticsController extends Controller
                 'totalRevenue' => round((float)($totals['totalRevenue'] ?? 0), 2),
             ];
 
+            // Kirim response JSON berisi metdata, totals, dan data rows
             return response()->json([
                 'metadata' => [
                     'period' => $period,
@@ -925,7 +991,6 @@ class AnalyticsController extends Controller
             $appKey = $request->query('app_key');
             
             if ($appKey) {
-                // Jika app_key diberikan, WAJIB ditemukan di database
                 $appConfig = $this->getApplicationByKey($appKey);
                 if (!$appConfig) {
                     return response()->json([
@@ -953,8 +1018,10 @@ class AnalyticsController extends Controller
             $dimensions = ['pageTitle'];
             $metrics = ['activeUsers','screenPageViews','averageSessionDuration','eventCount','conversions','totalRevenue'];
             
+            // Jalankan laporan historis dengan sorting berdasarkan jumlah tampilan halaman terbesar
             $reportData = $this->runHistoricalReport($analyticsData, $propertyId, $dateRangeConfig, $dimensions, $metrics, 'screenPageViews', 100);
 
+            // Format setiap baris laporan
             $formattedRows = [];
             if (!empty($reportData['rows'])) {
                 foreach ($reportData['rows'] as $row) {
@@ -972,6 +1039,7 @@ class AnalyticsController extends Controller
                 }
             }
             
+            // Format total metrik untuk ringkasan laporan halaman
             $totals = $reportData['totals'] ?? [];
             $totalActiveUsers = (float)($totals['activeUsers'] ?? 0);
             $totalScreenPageViews = (float)($totals['screenPageViews'] ?? 0);
@@ -984,6 +1052,7 @@ class AnalyticsController extends Controller
                 'totalRevenue' => round((float)($totals['totalRevenue'] ?? 0), 2),
             ];
 
+            // Return response JSON berisi metadata, totals, dan rows data
             return response()->json([
                 'metadata' => [
                     'period' => $period,
@@ -1002,12 +1071,18 @@ class AnalyticsController extends Controller
     }
 
     // ===================================================================
-    // HELPER FUNCTIONS
+    // HELPER #1: getDateRangeFromPeriod()
     // ===================================================================
 
+    /**
+     * Fungsi ini mengubah parameter periode, tanggal mulai dan tanggal akhir menjadi array dengan format start_date dan end_date
+     * Mendukung rentang periode predefined (today, yesterday, this_week, last_week, last_7_days, custom, dll)
+     */
     private function getDateRangeFromPeriod(string $period, ?string $customStart, ?string $customEnd): array
     {
+        // Ambil tanggal hari ini menggunakan Carbon
         $today = Carbon::today();
+        // Switch case untuk setiap periode
         switch ($period) {
             case 'today': return ['start_date' => $today->format('Y-m-d'), 'end_date' => $today->format('Y-m-d')];
             case 'yesterday': $yesterday = Carbon::yesterday(); return ['start_date' => $yesterday->format('Y-m-d'), 'end_date' => $yesterday->format('Y-m-d')];
@@ -1019,10 +1094,27 @@ class AnalyticsController extends Controller
             case 'last_30_days': return ['start_date' => '30daysAgo', 'end_date' => 'today'];
             case 'last_60_days': return ['start_date' => '60daysAgo', 'end_date' => 'today'];
             case 'custom': if ($customStart && $customEnd) { return ['start_date' => Carbon::parse($customStart)->format('Y-m-d'), 'end_date' => Carbon::parse($customEnd)->format('Y-m-d')]; } return ['start_date' => '7daysAgo', 'end_date' => 'today'];
+            // Default: jika periode tidak valid, gunakan last_7_days
             default: return ['start_date' => '7daysAgo', 'end_date' => 'today'];
         }
     }
     
+    // -------------------------------------------------------------------
+    // HELPER #2: formatDuration() 
+    // -------------------------------------------------------------------
+
+    /**
+     * Fungsi helper untuk format durasi dari seconds ke human readable
+     * 
+     * Contoh:
+     * - Input: 150 seconds → Output: "2m 30s"
+     * - Input: 3661 seconds → Output: "1h 1m 1s"
+     * - Input: 45 seconds → Output: "45s"
+     * - Input: 0.5 seconds → Output: "0s" (kurang dari 1 detik)
+     * 
+     * @param float $seconds - Durasi dalam seconds (bisa decimal)
+     * @return string - Durasi dalam format human readable
+     */
     private function formatDuration(float $seconds): string
     {
         if ($seconds < 1) { return '0s'; }
@@ -1034,6 +1126,12 @@ class AnalyticsController extends Controller
         return implode(' ', $parts);
     }
     
+    // ====================================================================
+    // HELPER #3 - runRealtimeReportHelper()
+    // ====================================================================
+    
+    // Fungsi ini menjalankan query ke Google Analytics Data API untuk data REALTIME
+    // Data realtime = data pengguna yang sedang aktif SEKARANG (update setiap detik)
     private function runRealtimeReportHelper($analyticsData, $propertyId, array $dimensions, array $metrics, ?FilterExpression $filterExpression = null): array
     {
         $dimensionObjects = array_map(fn($name) => new Dimension(['name' => $name]), $dimensions);
@@ -1053,6 +1151,11 @@ class AnalyticsController extends Controller
         return $result;
     }
     
+    // ===================================================================
+    // HELPER #4 - runHistoricalReport()
+    // ===================================================================
+
+    // Fungsi helper untuk menjalankan HISTORICAL REPORT ke GA4 API
     private function runHistoricalReport($analyticsData, $propertyId, array $dateRangeConfig, array $dimensions, array $metrics, ?string $orderByMetric = null, int $limit = 25): array
     {
         $dimensionObjects = array_map(fn($name) => new Dimension(['name' => $name]), $dimensions);
@@ -1074,6 +1177,10 @@ class AnalyticsController extends Controller
         return $result;
     }
     
+    // ===================================================================
+    // HELPER #5 - runCohortReport()
+    // ===================================================================
+    // Fungsi helper untuk menjalankan COHORT REPORT (User Retention Analysis)
     private function runCohortReport($analyticsData, $propertyId): array
     {
         $today = Carbon::today();
@@ -1087,6 +1194,10 @@ class AnalyticsController extends Controller
         return $formattedOutput;
     }
     
+    // ===================================================================
+    // HELPER #6 - handleApiException()
+    // ===================================================================
+    //Fungsi helper untuk handle exception dari Google API
     private function handleApiException(string $context, Exception $e): \Illuminate\Http\JsonResponse
     {
         $message = $e->getMessage(); $decoded = json_decode($message, true); if (json_last_error() === JSON_ERROR_NONE && isset($decoded['error']['message'])) { $message = $decoded['error']['message']; }
@@ -1094,6 +1205,10 @@ class AnalyticsController extends Controller
         return response()->json(['error' => "Gagal mengambil data {$context}: " . $message], 500);
     }
     
+    // ===================================================================
+    // HELPER #7 - runAdvancedHistoricalReport()
+    // ===================================================================
+    // Fungsi helper untuk historical report dengan FILTER SUPPORT
     private function runAdvancedHistoricalReport($analyticsData, $propertyId, array $dateRangeConfig, array $dimensions, array $metrics, ?string $orderByMetric, ?array $filters, int $limit = 250): array
     {
         $request = new RunReportRequest(['dateRanges' => [new GoogleDateRange($dateRangeConfig)],'dimensions' => array_map(fn($name) => new Dimension(['name' => $name]), $dimensions),'metrics' => array_map(fn($name) => new Metric(['name' => $name]), $metrics),'limit' => $limit,'metricAggregations' => ['TOTAL'],]);
@@ -1104,6 +1219,10 @@ class AnalyticsController extends Controller
         foreach($response->getRows()as $r){$rd=[];foreach($r->getDimensionValues()as $i=>$d){$rd[$dimensions[$i]]=$d->getValue();}foreach($r->getMetricValues()as $i=>$m){$rd[$metrics[$i]]=$m->getValue();}$result['rows'][]=$rd;}if($response->getTotals()&&count($response->getTotals())>0){$t=$response->getTotals()[0];foreach($t->getMetricValues()as $i=>$m){$result['totals'][$metrics[$i]]=$m->getValue();}}return $result;
     }
     
+    // ===================================================================
+    // HELPER #8 - buildAdvancedFilters()
+    // ===================================================================
+    // Fungsi helper untuk build filters dari request parameters
     private function buildAdvancedFilters(Request $request, array $appConfig): array
     {
         $filters = [];
@@ -1113,6 +1232,11 @@ class AnalyticsController extends Controller
         return $filters;
     }
     
+    // ===================================================================
+    // HELPER #9 - getDateRangeFromPeriod_new()
+    // ===================================================================
+    // Fungsi helper untuk date range - VERSI BARU (lebih simple)
+
     private function getDateRangeFromPeriod_new(Request $request): array
     {
         $period = $request->query('period', 'last_7_days');
@@ -1132,6 +1256,10 @@ class AnalyticsController extends Controller
         }
     }
     
+    // ===================================================================
+    // HELPER #10 - getAppliedFiltersForMetadata()
+    // ===================================================================
+    // Fungsi helper untuk extract filters yang diaplikasikan ke metadata
     private function getAppliedFiltersForMetadata(Request $request): array
     {
         $metadata = [];
@@ -1140,6 +1268,10 @@ class AnalyticsController extends Controller
         return $metadata;
     }
     
+    // ===================================================================
+    // HELPER #11 - formatTotals_new()
+    // ===================================================================
+    // Fungsi helper untuk format totals secara otomatis
     private function formatTotals_new(array $totals): array {
         $f=[];
         foreach($totals as $k=>$v){

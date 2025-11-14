@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Opd;
 use Illuminate\Http\Request;
 
+// OA > OpenAPI Annotation
+
 /**
  * @OA\Tag(
  *     name="OPD Management",
@@ -47,7 +49,7 @@ class OpdController extends Controller
      */
     public function index()
     {
-        $opds = Opd::orderBy('id')->get();
+        $opds = Opd::orderBy('id')->get(); 
         
         return response()->json([
             'success' => true,
@@ -317,6 +319,7 @@ class OpdController extends Controller
      */
     public function aplikasis(Request $request, $id)
     {
+        // Cari OPD berdasarkan ID yang dikirim
         $opd = Opd::find($id);
 
         if (!$opd) {
@@ -326,12 +329,14 @@ class OpdController extends Controller
             ], 404);
         }
 
+        // Ambil relasi aplikasi milik OPD
         $query = $opd->aplikasis();
         
         if ($request->has('active_only')) {
             $query->where('is_active', $request->boolean('active_only'));
         }
         
+        // Ambil daftar aplikasi, diurutkan berdasarkan ID acs
         $aplikasis = $query->orderBy('id')->get();
 
         return response()->json([
