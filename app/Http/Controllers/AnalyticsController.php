@@ -881,7 +881,7 @@ class AnalyticsController extends Controller
             $endDate = $request->query('end_date');
 
             // Menghasilkan rentang tanggal dari periode dan tanggal custom jika diberikan
-            $dateRangeConfig = $this->getDateRangeFromPeriod($period, $startDate, $endDate);
+            $dateRangeConfig = $this->getDateRangeFromPeriod($request);
 
             // Tentukan dimensi dan metrik laporan geografi
             $dimensions = ['country', 'city'];
@@ -1014,7 +1014,7 @@ class AnalyticsController extends Controller
             $period = $request->query('period', 'last_7_days');
             $startDate = $request->query('start_date');
             $endDate = $request->query('end_date');
-            $dateRangeConfig = $this->getDateRangeFromPeriod($period, $startDate, $endDate);
+            $dateRangeConfig = $this->getDateRangeFromPeriod($request);
             $dimensions = ['pageTitle'];
             $metrics = ['activeUsers','screenPageViews','averageSessionDuration','eventCount','conversions','totalRevenue'];
             
@@ -1282,7 +1282,7 @@ class AnalyticsController extends Controller
     }
     
     // ===================================================================
-    // HELPER #10 - getAppliedFiltersForMetadata()
+    // HELPER #9 - getAppliedFiltersForMetadata()
     // ===================================================================
     // Fungsi helper untuk extract filters yang diaplikasikan ke metadata
     private function getAppliedFiltersForMetadata(Request $request): array
@@ -1294,7 +1294,7 @@ class AnalyticsController extends Controller
     }
     
     // ===================================================================
-    // HELPER #11 - formatTotals_new()
+    // HELPER #10 - formatTotals_new()
     // ===================================================================
     // Fungsi helper untuk format totals secara otomatis
     private function formatTotals_new(array $totals): array {
