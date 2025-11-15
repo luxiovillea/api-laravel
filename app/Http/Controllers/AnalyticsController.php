@@ -227,7 +227,7 @@ class AnalyticsController extends Controller
             $analyticsData = new AnalyticsData($client);
             // Parse rentang tanggal dari request
             // Fungsi helper ini akan return array ['start_date' => '...', 'end_date' => '...']
-            $dateRange = $this->getDateRangeFromPeriod_new($request);
+            $dateRange = $this->getDateRangeFromPeriod($request);
             // Ambil semua aplikasi dari database
             $applications = $this->getApplicationsFromDatabase();
             
@@ -540,7 +540,7 @@ class AnalyticsController extends Controller
             // Ambil tipe laporan dari query parameter (default: 'pages')
             $reportType = $request->query('type', 'pages');
             // Parse date range
-            $dateRangeConfig = $this->getDateRangeFromPeriod_new($request);
+            $dateRangeConfig = $this->getDateRangeFromPeriod($request);
             // Build filters (filter aplikasi + filter tambahan dari query)
             $filters = $this->buildAdvancedFilters($request, $appConfig);
             // Tentukan dimensi dan metrik berdasarkan tipe laporan
@@ -1075,27 +1075,76 @@ class AnalyticsController extends Controller
     // ===================================================================
 
     /**
-     * Fungsi ini mengubah parameter periode, tanggal mulai dan tanggal akhir menjadi array dengan format start_date dan end_date
-     * Mendukung rentang periode predefined (today, yesterday, this_week, last_week, last_7_days, custom, dll)
+     * Fungsi helper untuk mengubah periode menjadi date range
+     * Mendukung: today, yesterday, this_week, last_week, last_X_days (dinamis), custom
+     * 
+     * @param Request $request
+     * @return array ['start_date' => string, 'end_date' => string]
      */
-    private function getDateRangeFromPeriod(string $period, ?string $customStart, ?string $customEnd): array
+    private function getDateRangeFromPeriod(Request $request): array
     {
-        // Ambil tanggal hari ini menggunakan Carbon
-        $today = Carbon::today();
-        // Switch case untuk setiap periode
+        $period = $request->query('period', 'last_7_days');
+        $customStart = $request->query('start_date');
+        $customEnd = $request->query('end_date');
+        
+        // Handle dynamic last_X_days (last_7_days, last_30_days, last_100_days, dll)
+        if (preg_match('/^last_(\d+)_days$/', $period, $matches)) {
+            $days = (int) $matches[1];
+            if ($days > 0) {
+                return [
+                    'start_date' => "{$days}daysAgo",
+                    'end_date' => 'today'
+                ];
+            }
+        }
+        
+        // Handle predefined periods
         switch ($period) {
-            case 'today': return ['start_date' => $today->format('Y-m-d'), 'end_date' => $today->format('Y-m-d')];
-            case 'yesterday': $yesterday = Carbon::yesterday(); return ['start_date' => $yesterday->format('Y-m-d'), 'end_date' => $yesterday->format('Y-m-d')];
-            case 'this_week': return ['start_date' => $today->copy()->startOfWeek(Carbon::SUNDAY)->format('Y-m-d'), 'end_date' => $today->format('Y-m-d')];
-            case 'last_week': $startOfLastWeek = $today->copy()->subWeek()->startOfWeek(Carbon::SUNDAY); $endOfLastWeek = $today->copy()->subWeek()->endOfWeek(Carbon::SATURDAY); return ['start_date' => $startOfLastWeek->format('Y-m-d'), 'end_date' => $endOfLastWeek->format('Y-m-d')];
-            case 'last_7_days': return ['start_date' => '7daysAgo', 'end_date' => 'today'];
-            case 'last_14_days': return ['start_date' => '14daysAgo', 'end_date' => 'today'];
-            case 'last_28_days': return ['start_date' => '28daysAgo', 'end_date' => 'today'];
-            case 'last_30_days': return ['start_date' => '30daysAgo', 'end_date' => 'today'];
-            case 'last_60_days': return ['start_date' => '60daysAgo', 'end_date' => 'today'];
-            case 'custom': if ($customStart && $customEnd) { return ['start_date' => Carbon::parse($customStart)->format('Y-m-d'), 'end_date' => Carbon::parse($customEnd)->format('Y-m-d')]; } return ['start_date' => '7daysAgo', 'end_date' => 'today'];
-            // Default: jika periode tidak valid, gunakan last_7_days
-            default: return ['start_date' => '7daysAgo', 'end_date' => 'today'];
+            case 'today':
+                return [
+                    'start_date' => 'today',
+                    'end_date' => 'today'
+                ];
+                
+            case 'yesterday':
+                return [
+                    'start_date' => 'yesterday',
+                    'end_date' => 'yesterday'
+                ];
+                
+            case 'this_week':
+                return [
+                    'start_date' => Carbon::now()->startOfWeek(Carbon::SUNDAY)->format('Y-m-d'),
+                    'end_date' => 'today'
+                ];
+                
+            case 'last_week':
+                $startOfLastWeek = Carbon::now()->subWeek()->startOfWeek(Carbon::SUNDAY);
+                $endOfLastWeek = Carbon::now()->subWeek()->endOfWeek(Carbon::SATURDAY);
+                return [
+                    'start_date' => $startOfLastWeek->format('Y-m-d'),
+                    'end_date' => $endOfLastWeek->format('Y-m-d')
+                ];
+                
+            case 'custom':
+                if ($customStart && $customEnd) {
+                    return [
+                        'start_date' => Carbon::parse($customStart)->format('Y-m-d'),
+                        'end_date' => Carbon::parse($customEnd)->format('Y-m-d')
+                    ];
+                }
+                // Fallback ke last_7_days jika custom date tidak valid
+                return [
+                    'start_date' => '7daysAgo',
+                    'end_date' => 'today'
+                ];
+                
+            default:
+                // Default fallback: last 7 days
+                return [
+                    'start_date' => '7daysAgo',
+                    'end_date' => 'today'
+                ];
         }
     }
     
@@ -1230,30 +1279,6 @@ class AnalyticsController extends Controller
         if ($request->filled('pageTitle')) { $filters[] = new FilterExpression(['filter' => new Filter(['field_name' => 'pageTitle', 'string_filter' => new StringFilter(['value' => $request->query('pageTitle'), 'match_type' => 'CONTAINS'])])]); }
         if ($request->filled('country')) { $filters[] = new FilterExpression(['filter' => new Filter(['field_name' => 'country', 'string_filter' => new StringFilter(['value' => $request->query('country'), 'match_type' => 'CONTAINS'])])]); }
         return $filters;
-    }
-    
-    // ===================================================================
-    // HELPER #9 - getDateRangeFromPeriod_new()
-    // ===================================================================
-    // Fungsi helper untuk date range - VERSI BARU (lebih simple)
-
-    private function getDateRangeFromPeriod_new(Request $request): array
-    {
-        $period = $request->query('period', 'last_7_days');
-        $customStart = $request->query('start_date');
-        $customEnd = $request->query('end_date');
-        if (preg_match('/^last_(\d+)_days$/', $period, $matches)) {
-            $days = $matches[1];
-            if ($days > 0) { return ['start_date' => "{$days}daysAgo", 'end_date' => 'today']; }
-        }
-        switch ($period) {
-            case 'today': return ['start_date' => 'today', 'end_date' => 'today'];
-            case 'yesterday': return ['start_date' => 'yesterday', 'end_date' => 'yesterday'];
-            case 'custom':
-                if ($customStart && $customEnd) { return ['start_date' => Carbon::parse($customStart)->format('Y-m-d'), 'end_date' => Carbon::parse($customEnd)->format('Y-m-d')]; }
-                return ['start_date' => '7daysAgo', 'end_date' => 'today'];
-            default: return ['start_date' => '7daysAgo', 'end_date' => 'today'];
-        }
     }
     
     // ===================================================================

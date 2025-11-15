@@ -319,7 +319,7 @@ class OpdController extends Controller
      */
     public function aplikasis(Request $request, $id)
     {
-        // Cari OPD berdasarkan ID yang dikirim
+        // Daftar Aplikasi berdasarkan ID OPD yang dikirim
         $opd = Opd::find($id);
 
         if (!$opd) {

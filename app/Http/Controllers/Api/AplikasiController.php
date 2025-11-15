@@ -155,7 +155,7 @@ class AplikasiController extends Controller
 
         // Set default values
         $validated['page_path_filter'] = $validated['page_path_filter'] ?? '/';
-        $validated['is_active'] = $validated['is_active'] ?? true;
+        $validated['is_active'] = $validated['is_active'] ?? true; // Kalau ga disetting langsung true active
 
         $aplikasi = Aplikasi::create($validated);
 
